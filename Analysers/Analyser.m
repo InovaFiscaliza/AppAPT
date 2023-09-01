@@ -10,15 +10,17 @@ classdef Analyser < dynamicprops
         % Para teste de conexão, usar esse timeout.
         CONNTIMEOUT = 2;
     end
+
+
     %
     % Métodos estáticos de conexão e criação de objetos
     %
 
     methods(Static)
 
-        % Conexão TCP
+        % Conexão TCP a ser sobrecarregada para outros tipos
         function out = connTCP(ip, port)
-            % Caso seja fornecido só o IP, faz a busca pelas portas
+            % TODO: Caso seja fornecido só o IP, faz a busca pelas portas
             if nargin < 2
                 % knowPorts = [5025, 5555, 9001, 34385];
                 error('Autodiscovery não implementado')
@@ -37,7 +39,6 @@ classdef Analyser < dynamicprops
             % (ex. R&S ou AT&T vão para R_S e AT_T)
             res = strrep(res,'&','_');
 
-            % out -> Retorna as propriedades do ojeto em um dicionário.
             data = strsplit(res, ',');
             data = [data, ip, double(port)];
             keys = ["Factory", "model", "serial", "version", "ip", "port"];
@@ -54,9 +55,7 @@ classdef Analyser < dynamicprops
         % Fábrica de instâncias
         %
 
-        % Verifica se há implementação
-        function obj = instance(args)
-                
+        function obj = instance(args)      
             % Verifica se o modelo bate com o fabricante
             % para evitar colisão de nomes
             if exist(args("model"), 'class') && exist(args("Factory"), 'class')
@@ -76,25 +75,26 @@ classdef Analyser < dynamicprops
 
     %
     % Métodos abstratos
-    % Por enquanto, só um exercício para aplicações
-    % Para garantir a implementação
     %
 
+    % Ao menos o fabricante precisa implementar todos estes.
     methods(Abstract)
         startUp(obj)
 
         getParms(obj)
         getSpan(obj)
 
-        %setFreq(obj, freq, stop) % Concreto
+        setFreq(obj, freq, stop)
         setSpan(obj, span)
         setRes(obj, res)
+        %setRFMode(obj, mode) % TODO
     end
 
 
     %
-    % Métodos de teste
+    % Métodos utilitários
     % Para serem sobrecarregados nas exceções
+    % Em especial outros tipos de conexões
     %
 
     methods
@@ -118,6 +118,7 @@ classdef Analyser < dynamicprops
                 warning("Analyser sendCMD: " + res)
             end
 
+            % TODO: Colocar a conexão em prop e reutilizar
             anl.flush()
             clear anl;
         end
@@ -130,24 +131,10 @@ classdef Analyser < dynamicprops
             if isempty(p)
                 error('Dispositivo indisponível')
             else
-                disp('Resposta IDN recebida Ok.')
+                disp('Resposta IDN recebida:')
+                disp(p)
             end
         end
-
-    %
-    % Métodos de operação
-    % Para serem sobrecarregados nas exceções
-    %
-
-        % Se passado o terceiro argumento faz start/stop, senão CF.
-        function setFreq(obj, freq, stop)
-            if nargin < 3
-                obj.sendCMD( sprintf("FREQuency:CENTer %f", freq) );
-            else
-                obj.sendCMD( sprintf("FREQuency:START %f; :SPECtrum:FREQuency:STOP %f", freq, stop) );
-            end
-        end
-
     end
 end
 

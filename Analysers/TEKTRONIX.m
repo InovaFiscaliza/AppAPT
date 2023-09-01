@@ -62,7 +62,7 @@ classdef TEKTRONIX < Analyser
         end
 
         function setRes(obj, res)
-            if ischar(res) && contains( num2str(res),'auto','IgnoreCase', true ) % Correção da Issue #2
+            if ischar(res) && contains( num2str(res),'auto','IgnoreCase', true )
                 obj.sendCMD("SPECtrum:BANDwidth:RESolution:Auto On");
             else
                 obj.sendCMD( sprintf("SPECtrum:BANDwidth:RESolution %f", res) );
