@@ -28,10 +28,11 @@ classdef Analyser < dynamicprops
 
             try
                 anl = tcpclient(ip, port, 'Timeout', Analyser.CONNTIMEOUT);
+                % Comandos comuns na IEEE 488.2 começam com asterisco.
                 res = anl.writeread('*IDN?');
                 clear anl;
             catch exception
-                error(exception.message)
+                error(getReport(exception))
                 error('A unidade não respondeu ao chamado de identificação.')
             end
 
@@ -83,6 +84,7 @@ classdef Analyser < dynamicprops
 
         getParms(obj)
         getSpan(obj)
+        getTraceData(obj)
 
         setFreq(obj, freq, stop)
         setSpan(obj, span)
@@ -109,6 +111,7 @@ classdef Analyser < dynamicprops
             end
         end
 
+        % Erros negativos são padrão SCPI. Os positivos são específicos
         function res = sendCMD(obj, cmd)
             anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             anl.writeline(cmd);
@@ -119,6 +122,13 @@ classdef Analyser < dynamicprops
             end
 
             % TODO: Colocar a conexão em prop e reutilizar
+            anl.flush()
+            clear anl;
+        end
+
+        function res = getCMDRes(obj, cmd)
+            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
+            res = anl.writeread(cmd);
             anl.flush()
             clear anl;
         end

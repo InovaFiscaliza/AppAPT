@@ -6,7 +6,7 @@ classdef TEKTRONIX < Analyser
 
         function startUp(obj)
             anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            writeline(anl, 'DISPlay:GENeral:MEASview:SELect SPEC;:FORMat:DATA BIN;:SYSTem:GPS INT')
+            writeline(anl, 'DISPlay:GENeral:MEASview:SELect SPECtrum;:FORMat:DATA BIN;:SYSTem:GPS INT')
             res = writeread(anl, "SYSTEM:ERROR?");
             if ~contains(res, "No error", "IgnoreCase", true)
                 warning("StartUp: " + res)
@@ -84,6 +84,11 @@ classdef TEKTRONIX < Analyser
             else
                 obj.sendCMD( sprintf(":INPut:GAIN:STATe OFF") );
             end
+        end
+
+        function data = getTraceData(obj)
+            obj.sendCMD("FORMat:LOGGing ASCii");
+            data = obj.getCMDRes("FETCh:SPECtrum:TRACe1?");
         end
     end
 end
