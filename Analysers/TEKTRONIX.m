@@ -83,10 +83,19 @@ classdef TEKTRONIX < Analyser
         % Para atenuação de entrada < 15dB
         function preAmp(obj, state)
             if (contains(state, "On", "IgnoreCase", true)) || (contains(state, "1"))
-                obj.sendCMD( sprintf(":INPut:GAIN:STATe ON") );
+                obj.sendCMD(":INPut:GAIN:STATe ON");
             else
-                obj.sendCMD( sprintf(":INPut:GAIN:STATe OFF") );
+                obj.sendCMD(":INPut:GAIN:STATe OFF");
             end
+        end
+
+        function value = getMarker(obj, freq, trace)
+            obj.sendCMD( 'CALCulate:SPECtrum:MARKer1:STATe On');
+            obj.sendCMD( sprintf('TRACe%i:SPECtrum:DETection AVERage', trace) );
+            % TODO: Verificar se está dentro dos limites para evitar NaN.
+            obj.sendCMD( sprintf('CALCulate:SPECtrum:MARKer1:X %i', freq)     );
+            value = str2double(obj.getCMDRes('CALCulate:SPECtrum:MARKer1:Y?'));
+            obj.sendCMD('CALCulate:SPECtrum:MARKer1:STATe Off');
         end
 
         function data = getTrace(obj, n)

@@ -85,10 +85,12 @@ classdef Analyser < dynamicprops
         getParms(obj)
         getSpan(obj)
         getTrace(obj, n)
+        getMarker(obj, freq, trace)
 
         setFreq(obj, freq, stop)
         setSpan(obj, span)
         setRes(obj, res)
+
         %setRFMode(obj, mode) % TODO
     end
 
