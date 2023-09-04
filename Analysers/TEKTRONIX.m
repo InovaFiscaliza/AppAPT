@@ -1,6 +1,9 @@
 classdef TEKTRONIX < Analyser
     methods
         function obj = TEKTRONIX(~,args)
+            if nargin < 2
+                error('Esta classe não deve ser executada diretamente.')
+            end
             obj.prop = args;
         end
 
@@ -86,9 +89,15 @@ classdef TEKTRONIX < Analyser
             end
         end
 
-        function data = getTraceData(obj)
-            obj.sendCMD("FORMat:LOGGing ASCii");
-            data = obj.getCMDRes("FETCh:SPECtrum:TRACe1?");
+        function data = getTrace(obj, n)
+            obj.sendCMD("FORMat:DATA ASCii");
+            trace = str2double( strsplit( obj.getCMDRes(sprintf("FETCh:SPECtrum:TRACe%i?", n) ), ',') );
+            % TODO: Nas proximas duas linhas, SYSTEM:ERROR retorna os valores setados:
+            fstart = str2double( obj.sendCMD("SPECtrum:FREQuency:START?") );
+            fstop  = str2double( obj.sendCMD("SPECtrum:FREQuency:STOP?" ) );
+            header = linspace(fstart, fstop, length(trace));
+            % TODO: Converter para table
+            data = table( num2str(header'), trace', 'VariableNames', {'freq', 'value'});
         end
     end
 end
