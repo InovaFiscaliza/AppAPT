@@ -6,12 +6,6 @@ classdef Analyser < dynamicprops
         prop
     end
 
-    properties (Constant)
-        % Para teste de conexão, usar esse timeout.
-        CONNTIMEOUT = 2;
-    end
-
-
     %
     % Métodos estáticos de conexão e criação de objetos
     %
@@ -27,7 +21,7 @@ classdef Analyser < dynamicprops
             end
 
             try
-                anl = tcpclient(ip, port, 'Timeout', Analysers.Analyser.CONNTIMEOUT);
+                anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
                 % Comandos comuns na IEEE 488.2 começam com asterisco.
                 res = anl.writeread('*IDN?');
                 clear anl;
@@ -137,7 +131,7 @@ classdef Analyser < dynamicprops
         end
 
         function ping(obj)
-            anl = tcpclient(obj.prop('ip'), double(obj.prop('port')), 'Timeout', obj.CONNTIMEOUT);
+            anl = tcpclient(obj.prop('ip'), double(obj.prop('port')), 'Timeout', CONSTANTS.CONNTIMEOUT);
             p = anl.writeread('*IDN?');
             clear anl;
 
