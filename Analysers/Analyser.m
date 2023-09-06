@@ -119,6 +119,7 @@ classdef Analyser < dynamicprops
             anl.writeline(cmd);
             res = writeread(anl, "SYSTEM:ERROR?");
 
+            % TODO: Verificar saída do retorno
             if ~contains(res, "No error", "IgnoreCase", true)
                 warning("Analyser sendCMD: " + res)
             end
