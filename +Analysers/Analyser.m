@@ -27,7 +27,7 @@ classdef Analyser < dynamicprops
             end
 
             try
-                anl = tcpclient(ip, port, 'Timeout', Analyser.CONNTIMEOUT);
+                anl = tcpclient(ip, port, 'Timeout', Analysers.Analyser.CONNTIMEOUT);
                 % Comandos comuns na IEEE 488.2 começam com asterisco.
                 res = anl.writeread('*IDN?');
                 clear anl;
