@@ -1,4 +1,4 @@
-classdef TEKTRONIX < Analyser
+classdef TEKTRONIX < Analysers.Analyser
     methods
         function obj = TEKTRONIX(~,args)
             if nargin < 2
@@ -33,7 +33,7 @@ classdef TEKTRONIX < Analyser
 
         function out = getParms(obj)
             anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            keys = ["Funcion", "AVGConunt", "Detection", "Power", "FStart", "FStop", "ResAuto", "Res", "InputGain", "Att"];
+            keys = ["Function", "AVGCount", "Detection", "Power", "FStart", "FStop", "ResAuto", "Res", "InputGain", "Att"];
             res = writeread(anl, "" + ...
                 "TRACe1:SPECtrum:FUNCtion?;" + ...
                 ":TRACe1:SPECtrum:AVERage:COUNt?;" + ...
@@ -101,6 +101,10 @@ classdef TEKTRONIX < Analyser
         function data = getTrace(obj, n)
             obj.sendCMD("FORMat:DATA ASCii");
             trace = str2double( strsplit( obj.getCMDRes(sprintf("FETCh:SPECtrum:TRACe%i?", n) ), ',') );
+<<<<<<< HEAD:Analysers/TEKTRONIX.m
+=======
+            % TODO: Nas proximas duas linhas, SYSTEM:ERROR retorna os valores setados:
+>>>>>>> namespace:+Analysers/TEKTRONIX.m
             fstart = str2double( obj.getCMDRes("SPECtrum:FREQuency:START?") );
             fstop  = str2double( obj.getCMDRes("SPECtrum:FREQuency:STOP?" ) );
             header = linspace(fstart, fstop, length(trace));
