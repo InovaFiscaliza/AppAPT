@@ -53,14 +53,15 @@ classdef Analyser < dynamicprops
         function obj = instance(args)      
             % Verifica se o modelo bate com o fabricante
             % para evitar colisão de nomes
-            if exist(args("model"), 'class') && exist(args("Factory"), 'class')
+
+            if exist('Analysers.' + args("model"), 'class') && exist('Analysers.' + args("Factory"), 'class')
                 disp( strcat('Base de comando(', args("Factory"), '), modelo (', args("model"), ').')) ;
-                constructor = str2func(args("model"));
+                constructor = str2func('Analysers.' + args("model"));
                 obj = constructor(args('model'), args);
-            elseif exist(args("Factory"), 'class')
+            elseif exist('Analysers.' + args("Factory"), 'class')
                 disp(['Base de comando do fabricante', args("Factory")])
                 constructor = str2func(args("Factory"));
-                obj = constructor(args('Factory'), args);
+                obj = constructor('Analysers.' + args('Factory'), args);
             else
                 error('Base de comando não implementada.');
             end
@@ -131,7 +132,7 @@ classdef Analyser < dynamicprops
         end
 
         function ping(obj)
-            anl = tcpclient(obj.prop('ip'), double(obj.prop('port')), 'Timeout', CONSTANTS.CONNTIMEOUT);
+            anl = tcpclient(obj.prop('ip'), double(obj.prop('port')), 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
             p = anl.writeread('*IDN?');
             clear anl;
 
