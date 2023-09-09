@@ -8,7 +8,7 @@ classdef SA2500PC < Analysers.TEKTRONIX
 
         % Simula porque o reset real encerra o SA2500PC
         function obj = scpiReset(obj)
-            disp('Simulando um "SCPI Reset" para o modelo SA2500PC.')
+            disp('SA2500PC: Simulando um "SCPI Reset" para o modelo.')
         end
     end
 end

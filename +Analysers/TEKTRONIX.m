@@ -14,27 +14,22 @@ classdef TEKTRONIX < Analysers.Analyser
             if ~contains(res, "No error", "IgnoreCase", true)
                 warning("StartUp: " + res)
             else
-                disp("Start Ok.")
+                disp("TEKTRONIX: Start Ok.")
             end
             clear anl;
         end    
 
         function res = getSpan(obj)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            res = writeread(anl, 'SPECtrum:FREQuency:SPAN?');
-            clear anl;
+            res = obj.getCMD('SPECtrum:FREQuency:SPAN?');
         end
 
         function res = getRes(obj)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            res = writeread(anl, ':SPECtrum:BANDwidth:RESolution?');
-            clear anl;
+            res = obj.getCMD(':SPECtrum:BANDwidth:RESolution?');
         end
 
         function out = getParms(obj)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             keys = ["Function", "AVGCount", "Detection", "Power", "FStart", "FStop", "ResAuto", "Res", "InputGain", "Att"];
-            res = writeread(anl, "" + ...
+            res = obj.getCMD("" + ...
                 "TRACe1:SPECtrum:FUNCtion?;" + ...
                 ":TRACe1:SPECtrum:AVERage:COUNt?;" + ...
                 ":TRACe1:SPECtrum:DETection?;" + ...
@@ -94,18 +89,24 @@ classdef TEKTRONIX < Analysers.Analyser
             obj.sendCMD( sprintf('TRACe%i:SPECtrum:DETection AVERage', trace) );
             % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf('CALCulate:SPECtrum:MARKer1:X %i', freq)     );
-            value = str2double(obj.getCMDRes('CALCulate:SPECtrum:MARKer1:Y?'));
+            value = str2double(obj.getCMD('CALCulate:SPECtrum:MARKer1:Y?'));
             obj.sendCMD('CALCulate:SPECtrum:MARKer1:STATe Off');
         end
 
-        function data = getTrace(obj, n)
+        function data = getTrace(obj, trace)
             obj.sendCMD("FORMat:DATA ASCii");
-            trace = str2double( strsplit( obj.getCMDRes(sprintf("FETCh:SPECtrum:TRACe%i?", n) ), ',') );
-            fstart = str2double( obj.getCMDRes("SPECtrum:FREQuency:START?") );
-            fstop  = str2double( obj.getCMDRes("SPECtrum:FREQuency:STOP?" ) );
-            header = linspace(fstart, fstop, length(trace));
-            % TODO: Converter para table
-            data = table( num2str(header'), trace', 'VariableNames', {'freq', 'value'});
+            pause(5)
+            obj.sendCMD( sprintf('TRACe%i:SPECtrum:DETection AVERage', trace) );
+            pause(5)
+            traceData = str2double( strsplit( obj.getCMD(sprintf("FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
+            pause(5)
+            fstart = str2double( obj.getCMD("SPECtrum:FREQuency:START?") );
+            pause(5)
+            fstop  = str2double( obj.getCMD("SPECtrum:FREQuency:STOP?" ) );
+            pause(5)
+            header = linspace(fstart, fstop, length(traceData));
+
+            data = table( num2str(header'), traceData', 'VariableNames', {'freq', 'value'});
         end
     end
 end

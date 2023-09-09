@@ -4,6 +4,7 @@ classdef Analyser < dynamicprops
 
     properties
         prop
+        conn
     end
 
     %
@@ -17,18 +18,19 @@ classdef Analyser < dynamicprops
             % TODO: Caso seja fornecido só o IP, faz a busca pelas portas
             if nargin < 2
                 % knowPorts = [5025, 5555, 9001, 34385];
-                error('Autodiscovery não implementado')
+                error('Analyser: Autodiscovery não implementado')
             end
 
             try
                 anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
-                % Comandos comuns na IEEE 488.2 começam com asterisco.
-                res = anl.writeread('*IDN?');
-                clear anl;
-            catch exception
-                error(getReport(exception))
-                error('A unidade não respondeu ao chamado de identificação.')
+            catch exception  
+                error('Analyser.connTCP: A unidade não respondeu ao chamado de identificação: %s', exception.identifier)
             end
+
+            %
+            % Comandos comuns na IEEE 488.2 começam com asterisco.
+            %
+            res = anl.writeread('*IDN?');
 
             % Elimina caracteres reservados para chamada de classe
             % (ex. R&S ou AT&T vão para R_S e AT_T)
@@ -42,7 +44,7 @@ classdef Analyser < dynamicprops
 
         % Teste para conexões alternativas 
         function connGPIB( ~, ~ )
-            error('Conexão GPIB não implementada.')
+            error('Analyser: Conexão GPIB não implementada.')
         end
 
 
@@ -55,15 +57,15 @@ classdef Analyser < dynamicprops
             % para evitar colisão de nomes
 
             if exist('Analysers.' + args("model"), 'class') && exist('Analysers.' + args("Factory"), 'class')
-                disp( strcat('Base de comando(', args("Factory"), '), modelo (', args("model"), ').')) ;
+                disp( strcat('Analyer: Base de comando(', args("Factory"), '), modelo (', args("model"), ').')) ;
                 constructor = str2func('Analysers.' + args("model"));
                 obj = constructor(args('model'), args);
             elseif exist('Analysers.' + args("Factory"), 'class')
-                disp(['Base de comando do fabricante', args("Factory")])
+                disp(['Analyer: Base de comando do fabricante', args("Factory")])
                 constructor = str2func(args("Factory"));
                 obj = constructor('Analysers.' + args('Factory'), args);
             else
-                error('Base de comando não implementada.');
+                error('Analyer: Base de comando não implementada.');
             end
         end
     end
@@ -104,41 +106,49 @@ classdef Analyser < dynamicprops
                 anl.writeline("*CLS"); % Limpa lista de erros do log
                 clear anl;
             catch
-                error('O instrumento não respondeu ao comando de RESET.')
+                error('Analyer.scpiReset: O instrumento não respondeu ao comando de RESET.')
             end
         end
 
         % Erros negativos são padrão SCPI. Os positivos são específicos
         function res = sendCMD(obj, cmd)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            anl.writeline(cmd);
-            res = writeread(anl, "SYSTEM:ERROR?");
-
-            if ~contains(res, "No error", "IgnoreCase", true)
-                warning("Analyser sendCMD: " + res)
+            if isempty(obj.conn)
+                disp('Analyer.sendCMD: Criando nova conexão TCP.')
+                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
 
-            % TODO: Colocar a conexão em prop e reutilizar
-            anl.flush()
-            clear anl;
+            obj.conn.writeline(cmd);
+            res = writeread(obj.conn, "SYSTEM:ERROR?");
+
+            if ~contains(res, "No error", "IgnoreCase", true)
+                warning("Analyer.sendCMD: " + res)
+            end
         end
 
-        function res = getCMDRes(obj, cmd)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            res = anl.writeread(cmd);
-            anl.flush()
-            clear anl;
+        function res = getCMD(obj, cmd)
+            if isempty(obj.conn)
+                disp('Analyer.getCMD: Criando nova conexão.')
+                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
+            end
+
+            res = obj.conn.writeread(cmd);
         end
 
         function ping(obj)
-            anl = tcpclient(obj.prop('ip'), double(obj.prop('port')), 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
-            p = anl.writeread('*IDN?');
-            clear anl;
+            if ~isprop(obj, 'conn')
+                disp('Analyser.ping: Mesma conexão')
+            else
+                disp('Analyser.ping: Criando conexão')
+                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
+            end
+
+            p = obj.conn.writeread('*IDN?');
 
             if isempty(p)
-                error('Dispositivo indisponível')
+                obj.conn = [];
+                error('Analyser.ping: Dispositivo indisponível')
             else
-                disp('Resposta IDN recebida:')
+                disp('Analyser.ping: Resposta IDN recebida:')
                 disp(p)
             end
         end
