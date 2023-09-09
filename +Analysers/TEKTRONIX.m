@@ -9,10 +9,13 @@ classdef TEKTRONIX < Analysers.Analyser
 
         function startUp(obj)
             anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            writeline(anl, 'DISPlay:GENeral:MEASview:SELect SPECtrum;:FORMat:DATA BIN;:SYSTem:GPS INT')
+            writeline(anl, ['' ...
+                'DISPlay:GENeral:MEASview:SELect SPECtrum;' ...
+                ':FORMat:DATA BIN;' ...
+                ':SYSTem:GPS INT'])
             res = writeread(anl, "SYSTEM:ERROR?");
             if ~contains(res, "No error", "IgnoreCase", true)
-                warning("StartUp: " + res)
+                warning("TEKTRONIX: StartUp: " + res)
             else
                 disp("TEKTRONIX: Start Ok.")
             end
