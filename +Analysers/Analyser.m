@@ -30,10 +30,14 @@ classdef Analyser < dynamicprops
             %
             % Comandos comuns na IEEE 488.2 começam com asterisco.
             %
-            res = anl.writeread('*IDN?');
+            try
+                res = anl.writeread('*IDN?');
+            catch exception
+                error('A unidade conecta mas não respode. A porta pode estar ocupada por outra instância: %s', exception.identifier)
+            end
 
             % Elimina caracteres reservados para chamada de classe
-            % (ex. R&S ou AT&T vão para R_S e AT_T)
+            % (ex. R&S e AT&T vão para R_S e AT_T)
             res = strrep(res,'&','_');
 
             data = strsplit(res, ',');
@@ -55,7 +59,6 @@ classdef Analyser < dynamicprops
         function obj = instance(args)      
             % Verifica se o modelo bate com o fabricante
             % para evitar colisão de nomes
-
             if exist('Analysers.' + args("model"), 'class') && exist('Analysers.' + args("Factory"), 'class')
                 disp( strcat('Analyer: Base de comando(', args("Factory"), '), modelo (', args("model"), ').')) ;
                 constructor = str2func('Analysers.' + args("model"));
@@ -72,23 +75,29 @@ classdef Analyser < dynamicprops
 
 
     %
-    % Métodos abstratos
+    % Métodos de operação
     %
 
-    % Ao menos o fabricante precisa implementar todos estes.
+    % Os abstratos precisam ser implementados ao menos na classe do fabricante.
+    % As implementações genéricas estão comentados com %*, 
+    % A sobreescrever se necessário.
     methods(Abstract)
         startUp(obj)
 
         getParms(obj)
-        getSpan(obj)
-        getTrace(obj, n)
-        getMarker(obj, freq, trace)
+        %* getSpan(obj)
+        %* getRes(obj)
 
-        setFreq(obj, freq, stop)
-        setSpan(obj, span)
-        setRes(obj, res)
+        %* setFreq(obj, freq, stop)
+        %* setSpan(obj, span)
+        %* setRes(obj, res)
+        %* setAtt(obj, att)
+        preAmp(obj, state)
 
         %setRFMode(obj, mode) % TODO
+
+        getMarker(obj, freq, trace)
+        getTrace(obj, n)
     end
 
 
@@ -118,7 +127,7 @@ classdef Analyser < dynamicprops
             end
 
             obj.conn.writeline(cmd);
-            res = writeread(obj.conn, "SYSTEM:ERROR?");
+            res = writeread(obj.conn, ":SYSTEM:ERROR?");
 
             if ~contains(res, "No error", "IgnoreCase", true)
                 warning("Analyer.sendCMD: " + res)
@@ -130,7 +139,6 @@ classdef Analyser < dynamicprops
                 disp('Analyer.getCMD: Criando nova conexão.')
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
-
             res = obj.conn.writeread(cmd);
         end
 
@@ -151,6 +159,43 @@ classdef Analyser < dynamicprops
                 disp('Analyser.ping: Resposta IDN recebida:')
                 disp(p)
             end
+        end
+
+        %
+        % Implementações genéricas
+        %
+
+        % Se passado o terceiro argumento faz start/stop, senão CF
+        function setFreq(obj, freq, stop)
+            if nargin < 3
+                obj.sendCMD( sprintf(":FREQuency:CENTer %f", freq) );
+            else
+                obj.sendCMD( sprintf(":FREQuency:STARt %f;:FREQuency:STOP %f", freq, stop) );
+            end
+        end
+
+        function res = getRes(obj)
+            res = obj.getCMD(':BANDwidth:RESolution?');
+        end
+
+        function res = getSpan(obj)
+            res = obj.getCMD(':FREQuency:SPAN?');
+        end
+
+        function setRes(obj, res)
+            if ischar(res) && contains( num2str(res),'auto','IgnoreCase', true )
+                obj.sendCMD(":BANDwidth:RESolution:AUTO ON");
+            else
+                obj.sendCMD( sprintf(":BANDwidth:RESolution %f", res) );
+            end
+        end
+
+        function setAtt(obj, att)
+            obj.sendCMD( sprintf(":POWer:RF:ATTenuation %f", att) );
+        end
+
+        function setSpan(obj, span)
+            obj.sendCMD( sprintf(":FREQuency:SPAN %f", span) );
         end
     end
 end
