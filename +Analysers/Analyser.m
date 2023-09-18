@@ -36,6 +36,8 @@ classdef Analyser < dynamicprops
                 error('A unidade conecta mas não respode. A porta pode estar ocupada por outra instância: %s', exception.identifier)
             end
 
+            clear anl;
+
             % Elimina caracteres reservados para chamada de classe
             % (ex. R&S e AT&T vão para R_S e AT_T)
             res = strrep(res,'&','_');
@@ -153,12 +155,20 @@ classdef Analyser < dynamicprops
             p = obj.conn.writeread('*IDN?');
 
             if isempty(p)
-                obj.conn = [];
+                obj.disconnect();
                 error('Analyser.ping: Dispositivo indisponível')
             else
                 disp('Analyser.ping: Resposta IDN recebida:')
                 disp(p)
             end
+        end
+
+        % Encerra ativamente a conexão
+        function disconnect(obj)
+            if ~isempty(obj.conn)
+                obj.conn.flush();
+            end
+            obj.conn = [];
         end
 
         %

@@ -103,18 +103,11 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function data = getTrace(obj, trace)
-            % TODO: Sincronizar as chamadas.
-            % Com esses pauses horríveis funciona.
             obj.sendCMD(":FORMat:DATA ASCii");
-            pause(5)
             obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            pause(5)
             traceData = str2double( strsplit( obj.getCMD(sprintf(":FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
-            pause(5)
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
-            pause(5)
             fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
-            pause(5)
             header = linspace(fstart, fstop, length(traceData));
             data = table( num2str(header'), traceData', 'VariableNames', {'freq', 'value'});
         end
