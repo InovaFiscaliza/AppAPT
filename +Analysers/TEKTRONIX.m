@@ -104,12 +104,30 @@ classdef TEKTRONIX < Analysers.Analyser
 
         function data = getTrace(obj, trace)
             obj.sendCMD(":FORMat:DATA ASCii");
+            obj.sendCMD("*ESE 1"); % Event Status Enable Register (ESER)
+            obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
             obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            traceData = str2double( strsplit( obj.getCMD(sprintf(":FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
+            traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
+            while( obj.getCMD('*OPC?') ~= '1' )
+                disp('Aguardando dados do intrumento.')
+                pause(0.5)
+            end
+            obj.getCMD('*OPC?');
+            waitfor(traceData);
+
+            % TODO: Acertar melhor o sincronismo com o instrumento
+            % Um erro aqui bloqueia o simulador
+            while( isnan(traceData) )
+                traceData = str2double( strsplit( obj.getCMD(sprintf(":FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
+                disp('trace is NaN.')
+                pause(0.5)
+            end
+
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
             fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
             header = linspace(fstart, fstop, length(traceData));
-            data = table( num2str(header'), traceData', 'VariableNames', {'freq', 'value'});
+            % header revertido de string para double para facilitar o plot
+            data = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end
     end
 end
