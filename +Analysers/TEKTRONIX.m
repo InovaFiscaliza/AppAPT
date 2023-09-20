@@ -108,18 +108,12 @@ classdef TEKTRONIX < Analysers.Analyser
             obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
             obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
-            while( obj.getCMD('*OPC?') ~= '1' )
-                disp('Aguardando dados do intrumento.')
-                pause(0.5)
-            end
-            obj.getCMD('*OPC?');
-            waitfor(traceData);
 
-            % TODO: Acertar melhor o sincronismo com o instrumento
+            % TODO: Acertar o sincronismo com o instrumento
             % Um erro aqui bloqueia o simulador
             while( isnan(traceData) )
                 traceData = str2double( strsplit( obj.getCMD(sprintf(":FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
-                disp('trace is NaN.')
+                disp('Tektronixs:getTrace: Aguardando resposta...')
                 pause(0.5)
             end
 
