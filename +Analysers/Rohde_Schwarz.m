@@ -1,6 +1,6 @@
-classdef R_S < Analysers.Analyser
+classdef Rohde_Schwarz < Analysers.Analyser
     methods
-        function obj = R_S(~,args)
+        function obj = Rohde_Schwarz(~,args)
             obj.prop = args;
         end
 

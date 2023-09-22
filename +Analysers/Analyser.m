@@ -41,6 +41,7 @@ classdef Analyser < dynamicprops
             % Elimina caracteres reservados para chamada de classe
             % (ex. R&S e AT&T vão para R_S e AT_T)
             res = strrep(res,'&','_');
+            res = strrep(res,'-','_');
 
             data = strsplit(res, ',');
             data = [data, ip, double(port)];
@@ -98,8 +99,8 @@ classdef Analyser < dynamicprops
 
         %setRFMode(obj, mode) % TODO
 
-        getMarker(obj, freq, trace)
-        getTrace(obj, n)
+        %%getMarker(obj, freq, trace)
+        %%getTrace(obj, n)
     end
 
 
