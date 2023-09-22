@@ -38,8 +38,8 @@ classdef Analyser < dynamicprops
 
             clear anl;
 
-            % Elimina caracteres reservados para chamada de classe
-            % (ex. R&S e AT&T vão para R_S e AT_T)
+            % Elimina caracteres especiais do nome
+            % (ex. R&S e AT&T vão para R_S e AT_T, e FSL-6 para FSL_6)
             res = strrep(res,'&','_');
             res = strrep(res,'-','_');
 

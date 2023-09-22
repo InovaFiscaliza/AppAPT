@@ -23,21 +23,21 @@ classdef Rohde_Schwarz < Analysers.Analyser
 
         function out = getParms(obj)
             keys = [
-                "Trace1Mode"; 
-                "SweeCount";
-                "Function";
-                "UnitPower";
-                "FStart";
-                "FStop";
-                "SweepPoints";
-                "ResAuto";
-                "Res";
-                "InputGain";
-                "AttAuto";
-                "Att";
-                "SeewpTime";
-                "FStartMin";
-                "FStopMax";
+                "Trace1Mode" ... 
+                "SweeCount" ...
+                "Function" ...
+                "UnitPower" ...
+                "FStart" ...
+                "FStop" ...
+                "SweepPoints" ...
+                "ResAuto" ...
+                "Res" ...
+                "InputGain" ...
+                "AttAuto" ...
+                "Att" ...
+                "SeewpTime" ...
+                "FStartMin" ...
+                "FStopMax" ...
                 "VBW" ];
             res = obj.getCMD("" + ...
                 ":DISPlay:WINDow:TRACe1:MODE?;" + ...
@@ -72,10 +72,25 @@ classdef Rohde_Schwarz < Analysers.Analyser
             end
         end
 
-        % TODO: A implementar:
-        % function value = getMarker(obj, freq, trace)
-        % function data = getTrace(obj, trace)
+        % TODO: Ajustar sincronismo:
+        function data = getTrace(obj, trace)
+            traceData = str2double( strsplit( obj.getCMD(sprintf("INITiate:IMMediate;*WAI;:TRACe:DATA? TRACe1", trace) ), ',') );
+   
+            while( isnan(traceData) )
+                traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:TRACe:DATA? TRACe1", trace) ), ',') );
+                % fstart e fstop retornam NaN.
+                fstart = str2double( obj.getCMD("*WAI;:FREQuency:STARt?") );
+                fstop  = str2double( obj.getCMD("*WAI;:FREQuency:STOP?" ) );
+                disp('Tektronixs:getTrace: Aguardando resposta...')
+                pause(0.5)
+            end
 
+            header = linspace(fstart, fstop, length(traceData));
+            data = table( header', traceData', 'VariableNames', {'freq', 'value'});
+        end
+
+        % TODO: Implementar
+        % function value = getMarker(obj, freq, trace)
     end
 end
 
