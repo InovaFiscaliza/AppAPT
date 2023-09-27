@@ -74,10 +74,10 @@ classdef Rohde_Schwarz < Analysers.Analyser
 
         % TODO: Ajustar sincronismo:
         function data = getTrace(obj, trace)
-            traceData = str2double( strsplit( obj.getCMD(sprintf("INITiate:IMMediate;*WAI;:TRACe:DATA? TRACe1", trace) ), ',') );
+            traceData = str2double( strsplit( obj.getCMD(sprintf("INITiate:IMMediate;*WAI;:TRACe:DATA? TRACe%i", trace) ), ',') );
    
             while( isnan(traceData) )
-                traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:TRACe:DATA? TRACe1", trace) ), ',') );
+                traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:TRACe:DATA? TRACe%i", trace) ), ',') );
                 % fstart e fstop retornam NaN.
                 fstart = str2double( obj.getCMD("*WAI;:FREQuency:STARt?") );
                 fstop  = str2double( obj.getCMD("*WAI;:FREQuency:STOP?" ) );

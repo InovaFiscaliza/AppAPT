@@ -1,7 +1,7 @@
-classdef EB500 < R_S
+classdef EB500 < Analysers.Rohde_Schwarz
     methods
         function obj = EB500(~, args)
-            obj@R_S('EB500', args)
+            obj@Analysers.Rohde_Schwarz('EB500', args)
         end
 
         function startUp(obj)
