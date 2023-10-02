@@ -24,7 +24,7 @@ classdef Rohde_Schwarz < Analysers.Analyser
         function out = getParms(obj)
             keys = [
                 "Trace1Mode" ... 
-                "SweeCount" ...
+                "SweepCount" ...
                 "Function" ...
                 "UnitPower" ...
                 "FStart" ...
@@ -72,25 +72,25 @@ classdef Rohde_Schwarz < Analysers.Analyser
             end
         end
 
-        % TODO: Ajustar sincronismo:
         function data = getTrace(obj, trace)
+            obj.sendCMD('FORMAT ASCII');
+            obj.sendCMD('*ESE 60');
+
             traceData = str2double( strsplit( obj.getCMD(sprintf("INITiate:IMMediate;*WAI;:TRACe:DATA? TRACe%i", trace) ), ',') );
-   
-            while( isnan(traceData) )
-                traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:TRACe:DATA? TRACe%i", trace) ), ',') );
-                % fstart e fstop retornam NaN.
-                fstart = str2double( obj.getCMD("*WAI;:FREQuency:STARt?") );
-                fstop  = str2double( obj.getCMD("*WAI;:FREQuency:STOP?" ) );
-                disp('Tektronixs:getTrace: Aguardando resposta...')
-                pause(0.5)
-            end
+
+            fstart = str2double( obj.getCMD("*WAI;:FREQuency:STARt?") );
+            fstop  = str2double( obj.getCMD("*WAI;:FREQuency:STOP?" ) );
 
             header = linspace(fstart, fstop, length(traceData));
             data = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end
 
-        % TODO: Implementar
-        % function value = getMarker(obj, freq, trace)
+        function value = getMarker(obj, freq, trace)
+            obj.sendCMD( 'CALC:MARK ON' );
+            obj.sendCMD( sprintf('CALC:MARK1:TRAC %i', trace) );
+            obj.sendCMD( sprintf('CALC:MARK:X %i', freq) );
+            value = obj.getCMD('CALC:MARK:Y?');
+        end
     end
 end
 

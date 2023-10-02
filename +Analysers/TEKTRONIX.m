@@ -109,12 +109,9 @@ classdef TEKTRONIX < Analysers.Analyser
             obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
 
-            % TODO: Acertar o sincronismo com o instrumento
-            % Um erro aqui bloqueia o simulador
-            while( isnan(traceData) )
-                traceData = str2double( strsplit( obj.getCMD(sprintf(":FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
-                disp('Tektronixs:getTrace: Aguardando resposta...')
-                pause(0.5)
+            while( obj.getCMD('*WAI;:*OPC?') ~= '1' )
+                disp('Tektronixs: Aguardando resposta...')
+                pause(0.2)
             end
 
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );

@@ -96,11 +96,10 @@ classdef Analyser < dynamicprops
         %* setRes(obj, res)
         %* setAtt(obj, att)
         preAmp(obj, state)
+        getMarker(obj, freq, trace)
+        getTrace(obj, n)
 
         %setRFMode(obj, mode) % TODO
-
-        %%getMarker(obj, freq, trace)
-        %%getTrace(obj, n)
     end
 
 
