@@ -132,14 +132,27 @@ classdef Analyser < dynamicprops
             end
 
             obj.conn.writeline(cmd);
+
+            while( obj.getCMD('*OPC?') ~= '1' )
+                disp('Analyser: Aguardando sincronismo ...')
+                pause(0.2)
+            end   
+
             res = writeread(obj.conn, ":SYSTEM:ERROR?");
 
+            if res == '1'
+                % É o resultado da espera por sincronismo.
+                return
+            end
+
+            % OBS: O retorno de SYSTEM:ERROR indica o último parâmetro processado
             if ~contains(res, "No error", "IgnoreCase", true)
-                warning("Analyer.sendCMD: " + res)
+                warning("Analyer.sendCMD: Último parâmetro: " + res)
             end
         end
 
         function res = getCMD(obj, cmd)
+            obj.conn.flush();
             if isempty(obj.conn)
                 disp('Analyer.getCMD: Criando nova conexão.')
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );

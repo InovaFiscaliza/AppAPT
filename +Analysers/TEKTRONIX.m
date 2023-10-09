@@ -11,8 +11,10 @@ classdef TEKTRONIX < Analysers.Analyser
             end
 
             obj.sendCMD(['*CLS;' ...
+                '*ESE 1;' ...
                 ':DISPlay:GENeral:MEASview:SELect SPEC;' ...
                 ':FORMat:DATA BIN;' ...
+                ':CALCulate:SPECtrum:MARKer1:STATe On;' ...
                 ':SYSTem:GPS INT']);
 
             res = obj.getCMD(":SYSTEM:ERROR?");
@@ -100,42 +102,38 @@ classdef TEKTRONIX < Analysers.Analyser
             end
         end
 
-        function value = getMarker(obj, freq, trace)
-            obj.sendCMD( ':CALCulate:SPECtrum:MARKer1:STATe On');
-            obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+        function value = getMarker(obj, freq, ~) % O argumento opcional é o trace
+            %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+
             % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i', freq)     );
-            value = str2double(obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?'));
-            obj.sendCMD(':CALCulate:SPECtrum:MARKer1:STATe Off');
+
+            % Casting porque o resultado retorna um 'char'
+            charValue = obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?');
+            value = str2double( charValue );
         end
 
         function data = getTrace(obj, trace)
-            obj.conn.Timeout = 60;
-            obj.conn.flush(); % Garantir que o buffer esteja vazio
-            obj.sendCMD(":FORMat:DATA BIN");
-            obj.sendCMD("INPut:ALEVel"); % Auto Level
-            obj.sendCMD("*ESE 1"); % Event Status Enable Register (ESER)
-            obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+            %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+            obj.sendCMD(":INPut:ALEVel"); % Auto Level
+            obj.sendCMD("*WAI;:INITiate:CONTinuous OFF"); % Single mesure
             obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
 
-            pause(3) % TODO: Ameniza o problema de sincronismo
+            while( obj.getCMD('*OPC?') ~= '1' )
+                disp('Tektronixs: Aguardando getTrace ...')
+                pause(0.2)
+            end      
 
             writeline(obj.conn, sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
-
-            % while( obj.getCMD('*WAI;:*OPC?') ~= '1' )
-            %     disp('Tektronixs: Aguardando resposta...')
-            %     pause(0.2)
-            % end
-
             traceData = readbinblock(obj.conn, 'single');
 
             if numel(traceData) ~= 501
                 error('Tamanho de vetor não esperado.')
             end
 
-            obj.conn.flush()
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
             fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
+
             header = linspace(fstart, fstop, length(traceData));
 
             % header revertido de string para double para facilitar o plot

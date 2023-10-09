@@ -9,7 +9,6 @@ function dataTraces = getTracesFromUnit(spc, nTraces)
 
     for ii = 1:nTraces
         dataTraces(ii, :) = spc.getTrace(1).value;
-        sprintf("Trace nº %i", ii)
+        sprintf("Trace %i", ii)
     end
-
 end
