@@ -5,12 +5,18 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function startUp(obj)
-            anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            writeline(anl, ['' ...
-                ':DISPlay:GENeral:MEASview:SELect SPECtrum;' ...
+            if isempty(obj.conn)
+                disp('TEKTRONIX.startUP: Criando nova conexão TCP.')
+                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
+            end
+
+            obj.sendCMD(['*CLS;' ...
+                ':DISPlay:GENeral:MEASview:SELect SPEC;' ...
                 ':FORMat:DATA BIN;' ...
-                ':SYSTem:GPS INT'])
-            res = writeread(anl, ":SYSTEM:ERROR?");
+                ':SYSTem:GPS INT']);
+
+            res = obj.getCMD(":SYSTEM:ERROR?");
+
             if ~contains(res, "No error", "IgnoreCase", true)
                 warning("TEKTRONIX: StartUp: " + res)
             else
@@ -66,6 +72,7 @@ classdef TEKTRONIX < Analysers.Analyser
             else
                 obj.sendCMD( sprintf(":SPECtrum:FREQuency:START %f;:SPECtrum:FREQuency:STOP %f", freq, stop) );
             end
+            obj.sendCMD("INPut:ALEVel"); % Auto Level
         end
 
         function setRes(obj, res)
@@ -103,20 +110,34 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function data = getTrace(obj, trace)
-            obj.sendCMD(":FORMat:DATA ASCii");
+            obj.conn.Timeout = 60;
+            obj.conn.flush(); % Garantir que o buffer esteja vazio
+            obj.sendCMD(":FORMat:DATA BIN");
+            obj.sendCMD("INPut:ALEVel"); % Auto Level
             obj.sendCMD("*ESE 1"); % Event Status Enable Register (ESER)
-            obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
             obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            traceData = str2double( strsplit( obj.getCMD(sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace) ), ',') );
+            obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
 
-            while( obj.getCMD('*WAI;:*OPC?') ~= '1' )
-                disp('Tektronixs: Aguardando resposta...')
-                pause(0.2)
+            pause(3) % TODO: Ameniza o problema de sincronismo
+
+            writeline(obj.conn, sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
+
+            % while( obj.getCMD('*WAI;:*OPC?') ~= '1' )
+            %     disp('Tektronixs: Aguardando resposta...')
+            %     pause(0.2)
+            % end
+
+            traceData = readbinblock(obj.conn, 'single');
+
+            if numel(traceData) ~= 501
+                error('Tamanho de vetor não esperado.')
             end
 
+            obj.conn.flush()
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
             fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
             header = linspace(fstart, fstop, length(traceData));
+
             % header revertido de string para double para facilitar o plot
             data = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end

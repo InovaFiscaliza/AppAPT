@@ -7,13 +7,35 @@ classdef Analyser < dynamicprops
         conn
     end
 
+    % Os abstratos precisam ser implementados ao menos na classe do fabricante.
+    % As implementações genéricas estão comentados com %*, 
+    % A sobreescrever se necessário.
+    methods(Abstract)
+        startUp(obj)
+
+        getParms(obj)
+        %* getSpan(obj)
+        %* getRes(obj)
+
+        %* setFreq(obj, freq, stop)
+        %* setSpan(obj, span)
+        %* setRes(obj, res)
+        %* setAtt(obj, att)
+        preAmp(obj, state)
+        getMarker(obj, freq, trace)
+        getTrace(obj, n)
+
+        %setRFMode(obj, mode) % TODO
+    end
+
+
     %
     % Métodos estáticos de conexão e criação de objetos
     %
 
     methods(Static)
 
-        % Conexão TCP a ser sobrecarregada para outros tipos
+        % Conexão estática para solicitação de identificação
         function out = connTCP(ip, port)
             % TODO: Caso seja fornecido só o IP, faz a busca pelas portas
             if nargin < 2
@@ -23,7 +45,8 @@ classdef Analyser < dynamicprops
 
             try
                 anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
-            catch exception  
+            catch exception
+                clear obj;
                 error('Analyser.connTCP: A unidade não respondeu ao chamado de identificação: %s', exception.identifier)
             end
 
@@ -49,7 +72,7 @@ classdef Analyser < dynamicprops
             out = dictionary(keys, data);
         end
 
-        % Teste para conexões alternativas 
+        % Conexão alternativa GPIB não implementada.
         function connGPIB( ~, ~ )
             error('Analyser: Conexão GPIB não implementada.')
         end
@@ -68,7 +91,7 @@ classdef Analyser < dynamicprops
                 obj = constructor(args('model'), args);
             elseif exist('Analysers.' + args("Factory"), 'class')
                 disp(['Analyer: Base de comando do fabricante', args("Factory")])
-                constructor = str2func(args("Factory"));
+                constructor = str2func('Analysers.' + args("Factory"));
                 obj = constructor('Analysers.' + args('Factory'), args);
             else
                 error('Analyer: Base de comando não implementada.');
@@ -81,44 +104,24 @@ classdef Analyser < dynamicprops
     % Métodos de operação
     %
 
-    % Os abstratos precisam ser implementados ao menos na classe do fabricante.
-    % As implementações genéricas estão comentados com %*, 
-    % A sobreescrever se necessário.
-    methods(Abstract)
-        startUp(obj)
-
-        getParms(obj)
-        %* getSpan(obj)
-        %* getRes(obj)
-
-        %* setFreq(obj, freq, stop)
-        %* setSpan(obj, span)
-        %* setRes(obj, res)
-        %* setAtt(obj, att)
-        preAmp(obj, state)
-        getMarker(obj, freq, trace)
-        getTrace(obj, n)
-
-        %setRFMode(obj, mode) % TODO
-    end
-
-
-    %
-    % Métodos utilitários
-    % Para serem sobrecarregados nas exceções
-    % Em especial outros tipos de conexões
-    %
-
     methods
         function scpiReset(obj)
-            try
-                anl = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-                anl.writeline('*RST'); % Preset
-                anl.writeline("*CLS"); % Limpa lista de erros do log
-                clear anl;
-            catch
-                error('Analyer.scpiReset: O instrumento não respondeu ao comando de RESET.')
+            if isempty(obj.conn)
+                disp('Analyer.scpiReset: Criando nova conexão TCP.')
+                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
+
+            try
+                obj.sendCMD('*RST'); % Preset
+                obj.sendCMD('*CLS'); % Limpa lista de erros do log
+            catch
+                obj.disconnect();
+                error('Analyer.scpiReset: O instrumento não respondeu ao comando de PRESET.')
+            end
+
+            %if exist('anl', 'var')
+            %    clear anl;
+            %end
         end
 
         % Erros negativos são padrão SCPI. Os positivos são específicos
@@ -141,11 +144,13 @@ classdef Analyser < dynamicprops
                 disp('Analyer.getCMD: Criando nova conexão.')
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
+            obj.conn.flush();
             res = obj.conn.writeread(cmd);
         end
 
         function ping(obj)
-            if ~isprop(obj, 'conn')
+            
+            if ~isempty(obj.conn)
                 disp('Analyser.ping: Mesma conexão')
             else
                 disp('Analyser.ping: Criando conexão')
@@ -167,6 +172,7 @@ classdef Analyser < dynamicprops
         function disconnect(obj)
             if ~isempty(obj.conn)
                 obj.conn.flush();
+                clear obj.conn;
             end
             obj.conn = [];
         end
@@ -206,6 +212,11 @@ classdef Analyser < dynamicprops
 
         function setSpan(obj, span)
             obj.sendCMD( sprintf(":FREQuency:SPAN %f", span) );
+        end
+
+        % Destrutor da Classe
+        function delete(obj)
+            obj.disconnect();
         end
     end
 end
