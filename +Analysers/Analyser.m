@@ -46,7 +46,9 @@ classdef Analyser < dynamicprops
             try
                 anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
             catch exception
-                clear obj;
+                if exist('anl', 'var')
+                   clear anl;
+                end
                 error('Analyser.connTCP: A unidade não respondeu ao chamado de identificação: %s', exception.identifier)
             end
 
@@ -56,10 +58,15 @@ classdef Analyser < dynamicprops
             try
                 res = anl.writeread('*IDN?');
             catch exception
+                if exist('anl', 'var')
+                   clear anl;
+                end
                 error('A unidade conecta mas não respode. A porta pode estar ocupada por outra instância: %s', exception.identifier)
             end
 
-            clear anl;
+            if exist('anl', 'var')
+               clear anl;
+            end
 
             % Elimina caracteres especiais do nome
             % (ex. R&S e AT&T vão para R_S e AT_T, e FSL-6 para FSL_6)
@@ -118,10 +125,6 @@ classdef Analyser < dynamicprops
                 obj.disconnect();
                 error('Analyer.scpiReset: O instrumento não respondeu ao comando de PRESET.')
             end
-
-            %if exist('anl', 'var')
-            %    clear anl;
-            %end
         end
 
         % Erros negativos são padrão SCPI. Os positivos são específicos
@@ -133,15 +136,21 @@ classdef Analyser < dynamicprops
 
             obj.conn.writeline(cmd);
 
+            % Teste de bloqueio de fluxo
+            if obj.getCMD('*OPC?') ~= '1'
+                disp('Analyser: Aguardando sincronismo (1/2): ...')
+                disp(cmd)
+            end
+
             while( obj.getCMD('*OPC?') ~= '1' )
-                disp('Analyser: Aguardando sincronismo ...')
+                disp('Analyser: Aguardando sincronismo (2/2) recursivo ...')
                 pause(0.2)
             end   
 
             res = writeread(obj.conn, ":SYSTEM:ERROR?");
 
+            % É o resultado da espera por sincronismo.
             if res == '1'
-                % É o resultado da espera por sincronismo.
                 return
             end
 
@@ -152,17 +161,16 @@ classdef Analyser < dynamicprops
         end
 
         function res = getCMD(obj, cmd)
-            obj.conn.flush();
             if isempty(obj.conn)
                 disp('Analyer.getCMD: Criando nova conexão.')
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
+            % Limpa o buffer antes da leitura
             obj.conn.flush();
             res = obj.conn.writeread(cmd);
         end
 
         function ping(obj)
-            
             if ~isempty(obj.conn)
                 disp('Analyser.ping: Mesma conexão')
             else

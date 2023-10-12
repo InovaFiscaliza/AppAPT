@@ -10,12 +10,16 @@ classdef TEKTRONIX < Analysers.Analyser
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
 
-            obj.sendCMD(['*CLS;' ...
+            obj.sendCMD([ ...
+                '*CLS;' ...
                 '*ESE 1;' ...
                 ':DISPlay:GENeral:MEASview:SELect SPEC;' ...
                 ':FORMat:DATA BIN;' ...
                 ':CALCulate:SPECtrum:MARKer1:STATe On;' ...
-                ':SYSTem:GPS INT']);
+                ':SYSTem:GPS INT;' ...
+                '*OPC']);
+
+            obj.sendCMD(":INITiate:CONTinuous OFF"); % Single mesure
 
             res = obj.getCMD(":SYSTEM:ERROR?");
 
@@ -74,6 +78,7 @@ classdef TEKTRONIX < Analysers.Analyser
             else
                 obj.sendCMD( sprintf(":SPECtrum:FREQuency:START %f;:SPECtrum:FREQuency:STOP %f", freq, stop) );
             end
+            % Sempre ajusta para Auto Level quando alterar a freq.
             obj.sendCMD("INPut:ALEVel"); % Auto Level
         end
 
@@ -105,36 +110,64 @@ classdef TEKTRONIX < Analysers.Analyser
         function value = getMarker(obj, freq, ~) % O argumento opcional é o trace
             %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
 
+            
             % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i', freq)     );
+            
+            % Evitar executar qualquer comando até terminar *WAI
+            charValue = obj.getCMD('*WAI;:CALCulate:SPECtrum:MARKer1:Y?');
 
-            % Casting porque o resultado retorna um 'char'
-            charValue = obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?');
+            if obj.getCMD('*OPC?') ~= '1'
+                disp('Tektronixs: Marker pronto com atraso ...')
+            end
+
+            % Casting porque o resultado retorna 'char'
             value = str2double( charValue );
+
+            while( isnan(value) )
+                charValue = obj.getCMD('*WAI;:CALCulate:SPECtrum:MARKer1:Y?');
+                warning('Tektronixs: Marker com atraso.')
+            end           
         end
 
         function data = getTrace(obj, trace)
             %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             obj.sendCMD(":INPut:ALEVel"); % Auto Level
-            obj.sendCMD("*WAI;:INITiate:CONTinuous OFF"); % Single mesure
-            obj.sendCMD(":ABORt;INITiate:IMMediate;*OPC");
-
-            while( obj.getCMD('*OPC?') ~= '1' )
-                disp('Tektronixs: Aguardando getTrace ...')
-                pause(0.2)
-            end      
+            obj.sendCMD(":INITiate:IMMediate;"); % Trigger
 
             writeline(obj.conn, sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
+
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Tektronixs: Trace data com atraso  ...')
+            % end
+            % 
+            % while( obj.getCMD('*OPC?') ~= '1' )
+            %     disp('Analyser: Aguardando Trace recursivo ...')
+            %     pause(0.2)
+            % end   
+
             traceData = readbinblock(obj.conn, 'single');
 
             if numel(traceData) ~= 501
-                error('Tamanho de vetor não esperado.')
+                error('Tektronixs: Tamanho de vetor não esperado.')
+            end
+
+            if isnan(traceData)
+                warning('Tektronixs: Trace data contém NaN')
             end
 
             fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
             fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
 
             header = linspace(fstart, fstop, length(traceData));
+
+            if obj.getCMD('*OPC?') ~= '1'
+                disp('Tektronixs: Trace header pronto com atraso  ...')
+            end
+
+            if isnan(header)
+                warning('Tektronixs: Trace head contém NaN')
+            end   
 
             % header revertido de string para double para facilitar o plot
             data = table( header', traceData', 'VariableNames', {'freq', 'value'});
