@@ -112,30 +112,28 @@ classdef TEKTRONIX < Analysers.Analyser
 
             
             % TODO: Verificar se está dentro dos limites para evitar NaN.
-            obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i', freq)     );
-            
-            % Evitar executar qualquer comando até terminar *WAI
-            charValue = obj.getCMD('*WAI;:CALCulate:SPECtrum:MARKer1:Y?');
+            obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i;*WAI', freq)     );
 
             if obj.getCMD('*OPC?') ~= '1'
                 disp('Tektronixs: Marker pronto com atraso ...')
             end
 
-            % Casting porque o resultado retorna 'char'
-            value = str2double( charValue );
+            charValue = obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?;*WAI;');
 
-            while( isnan(value) )
-                charValue = obj.getCMD('*WAI;:CALCulate:SPECtrum:MARKer1:Y?');
+            while( isnan(charValue) )
                 warning('Tektronixs: Marker com atraso.')
-            end           
+                % Casting porque o resultado retorna 'char'
+            end
+            
+            value = str2double( charValue );
         end
 
         function data = getTrace(obj, trace)
             %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             obj.sendCMD(":INPut:ALEVel"); % Auto Level
-            obj.sendCMD(":INITiate:IMMediate;"); % Trigger
+            obj.sendCMD(":INITiate:IMMediate"); % Trigger
 
-            writeline(obj.conn, sprintf("*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
+            writeline(obj.conn, sprintf(":FETCh:SPECtrum:TRACe%i?", trace));
 
             % if obj.getCMD('*OPC?') ~= '1'
             %     disp('Tektronixs: Trace data com atraso  ...')
@@ -161,10 +159,11 @@ classdef TEKTRONIX < Analysers.Analyser
 
             header = linspace(fstart, fstop, length(traceData));
 
-            if obj.getCMD('*OPC?') ~= '1'
-                disp('Tektronixs: Trace header pronto com atraso  ...')
-            end
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Tektronixs: Trace header pronto com atraso  ...')
+            % end
 
+            % TODO: Possível falha na detecção
             if isnan(header)
                 warning('Tektronixs: Trace head contém NaN')
             end   
