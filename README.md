@@ -18,5 +18,7 @@ Neste primeiro passo, foram criadas estruturas para uma interface unificada de o
 
 ## Testes
 
-Em TestBook estão os live scripts para testes com os instrumentos. Os resultados estão em pdf para referência rápida.
+Em Analyers/TestBook estão os livros de testes dos instrumentos. Os resultados estão em pdf para referência rápida.
+
+As funções em +fcn comporão uma classe estática para absorvê-las quando prontas.
 
