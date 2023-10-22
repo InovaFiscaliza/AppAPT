@@ -1,7 +1,8 @@
-function shape = calculateShape(hReceiver, FreqList, OptionalArguments)
+% hReceiver, FreqList, OptionalArguments
+function shape = calculateShape(~,~,~)
 
     % Utilizando medidas do workspace do caderno de testes.
-    load('C:\P&D\AppAPT\+Analysers\TestBook\TestTektronixSA2500.mat');
+    load('C:\P&D\AppAPT\+Analysers\TestBook\TestTektronixSA2500.mat', 'trcs', 'trace');
 
     % trcs - Traces no workspace
     nTraces = height(trcs);

@@ -1,7 +1,7 @@
 function calculateBW(~)
 
     % Fake call
-    shape = fcn.naive.calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
 
     nTraces = height(shape);
 

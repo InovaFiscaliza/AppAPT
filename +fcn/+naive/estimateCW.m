@@ -1,5 +1,5 @@
 function estimateCW(~, ~, ~)
-    shape = fcn.naive.calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
 
     % Pré alocação de Estimativa de CW:
     eCW = zeros(height(shape), 2, 'single');
@@ -22,6 +22,7 @@ function estimateCW(~, ~, ~)
     end
 
     % Obtém a frequência com índice de menor Z score.
+    feCW = zeros(height(shape), 1, 'single');
     for ii = 1:(height(zscore) * 0.2)
         feCW(ii) = eCW(ii);
     end
