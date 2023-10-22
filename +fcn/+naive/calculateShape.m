@@ -43,7 +43,7 @@ function shape = calculateShape(hReceiver, FreqList, OptionalArguments)
         shape(ii,:) = [fInf,fSup];
     end
     
-    % Remove os NaN
-    indexNaN = isnan(shape); 
-    shape = shape(~indexNaN);
+    % Remove qualquer linha com NaN
+    indexNaN = any(isnan(shape),2); 
+    shape = shape(~indexNaN,:);
 end
