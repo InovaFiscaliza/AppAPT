@@ -12,6 +12,9 @@ function shape = calculateShape(hReceiver, FreqList, OptionalArguments)
     shape = zeros(nTraces, 2, 'single');
    
     for ii = 1:nTraces
+        fInf = NaN;
+        fSup = NaN;
+        
         peak = max( trcs(ii,:) );
         peakIndex = find( trcs(ii,:) == peak );
 
@@ -37,7 +40,10 @@ function shape = calculateShape(hReceiver, FreqList, OptionalArguments)
                 fInf = NaN; % Não encontrado
             end    
         end
-
         shape(ii,:) = [fInf,fSup];
     end
+    
+    % Remove os NaN
+    indexNaN = isnan(shape); 
+    shape = shape(~indexNaN);
 end
