@@ -1,5 +1,5 @@
 function estimateCW(~, ~, ~)
-    shape = calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = fcn.naive.calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
 
     % Pré alocação de Estimativa de CW:
     eCW = zeros(height(shape), 2, 'single');
