@@ -1,33 +1,19 @@
 function estimateCW(~, ~, ~)
-    shape = fcn.naive.calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = fcn.naive.calculateInternalShape('hReceiver', 'FreqList', 'OptionalArguments');
 
-    % Pré alocação de Estimativa de CW:
-    eCW = zeros(height(shape), 2, 'single');
-
-    % Média da largura (de fcn.naive.calculateShape)
-    for ii = 1:height(shape)
-        eCW(ii,:) = ( shape(ii,2) + shape(ii,1) ) / 2;
-    end
-
-    % Alocação para o Z-Score
-    zscore = zeros(height(shape), 2, 'single');
+    % Freq. média dos valores
+    eCW = mean(shape, 2);
 
     % Média e desvio do total
     avgECW = mean( eCW );
     stdECW = std ( eCW );
 
-    for ii = 1:height(eCW)
-        zscore(ii,1) = [ abs( ( eCW(ii) - avgECW ) / stdECW )];
-        zscore(ii,2) = ii; % Guarda os índices
-    end
+    zscore = [ abs( ( eCW - avgECW ) / stdECW ), (1:numel(eCW))' ];
 
-    % Obtém a frequência com índice de menor Z score.
-    feCW = zeros(height(shape), 1, 'single');
-    for ii = 1:(height(zscore) * 0.2)
-        feCW(ii) = eCW(ii);
-    end
+    [~,zIdx] = sort(zscore(:,1));
+    feCW = zscore(zIdx,:);
+    feCW = feCW( 1:round(height(feCW) * 0.2), : );
 
-    fprintf('Frequência central estimada para 68%% das medidas em %i ± %0.f Hz.\n', feCW(1), std(feCW) );
-    disp('Estimativa evidentemente errada porque não condiz com o instrumento.')
+    fprintf('Frequência central estimada para 68%% das medidas em %i ± %0.f Hz.\n', feCW(1), std(feCW(:,1)) );
 end
 

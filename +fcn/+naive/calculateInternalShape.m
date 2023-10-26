@@ -1,13 +1,15 @@
 % hReceiver, FreqList, OptionalArguments
-function shape = calculateShape(~,~,~)
+function shape = calculateInternalShape(~,~,~)
 
+    % calculateInternalShape
+    % TODO: calculateExternalShape
     % Utilizando medidas do workspace do caderno de testes.
     load('C:\P&D\AppAPT\+Analysers\TestBook\TestTektronixSA2500.mat', 'trcs', 'trace');
 
     % trcs - Traces no workspace
     nTraces = height(trcs);
 
-    delta = -25;
+    delta = -26;
 
     % Conterá a frequência inferior e superior para um delta dB especificado.
     shape = zeros(nTraces, 2, 'single');
@@ -25,9 +27,6 @@ function shape = calculateShape(~,~,~)
                 fSup = trace.freq(jj);
                 break;
             end
-            if jj == height(trace.freq(jj))
-                fSup = NaN; % Não encontrado
-            end
         end
     
         % Para baixo
@@ -35,11 +34,7 @@ function shape = calculateShape(~,~,~)
             if trcs(ii,jj) <= peak + delta
                 fInf = trace.freq(jj);
                 break;
-            end
-    
-            if jj == 1
-                fInf = NaN; % Não encontrado
-            end    
+            end 
         end
         shape(ii,:) = [fInf,fSup];
     end

@@ -1,16 +1,11 @@
 function calculateBW(~)
 
     % Fake call
-    shape = fcn.naive.calculateShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = fcn.naive.calculeInternalShape('hReceiver', 'FreqList', 'OptionalArguments');
 
     nTraces = height(shape);
 
-    BW = zeros(nTraces, 1, 'single');
-
-    for ii = 1:nTraces
-        % Frequência superior - Frequência inferior
-        BW(ii,:) = shape(ii,2) - shape(ii,1);
-    end
+    BW = diff(shape');
 
     stdBW = std(BW);
 
