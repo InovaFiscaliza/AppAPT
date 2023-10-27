@@ -43,6 +43,12 @@ classdef Analyser < dynamicprops
                 error('Analyser: Autodiscovery não implementado')
             end
 
+            % [instrHandle, msgError] = apt.GetInstrumentHandle(app, 1)
+            % if ~isempty(msgError)
+            %     error(msgError)
+            % end
+            % obj.conn = instrHandle;
+
             try
                 anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
             catch exception
@@ -128,36 +134,36 @@ classdef Analyser < dynamicprops
         end
 
         % Erros negativos são padrão SCPI. Os positivos são específicos
-        function res = sendCMD(obj, cmd)
-            if isempty(obj.conn)
-                disp('Analyer.sendCMD: Criando nova conexão TCP.')
-                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            end
+        function sendCMD(obj, cmd)
+            % if isempty(obj.conn)
+            %     disp('Analyer.sendCMD: Criando nova conexão TCP.')
+            %     obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
+            % end
 
             obj.conn.writeline(cmd);
 
             % Teste de bloqueio de fluxo
-            if obj.getCMD('*OPC?') ~= '1'
-                disp('Analyser: Aguardando sincronismo (1/2): ...')
-                disp(cmd)
-            end
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Analyser: Aguardando sincronismo (1/2): ...')
+            %     disp(cmd)
+            % end
+            % 
+            % while( obj.getCMD('*OPC?') ~= '1' )
+            %     disp('Analyser: Aguardando sincronismo (2/2) recursivo ...')
+            %     pause(0.2)
+            % end   
 
-            while( obj.getCMD('*OPC?') ~= '1' )
-                disp('Analyser: Aguardando sincronismo (2/2) recursivo ...')
-                pause(0.2)
-            end   
-
-            res = writeread(obj.conn, ":SYSTEM:ERROR?");
-
-            % É o resultado da espera por sincronismo.
-            if res == '1'
-                return
-            end
-
-            % OBS: O retorno de SYSTEM:ERROR indica o último parâmetro processado
-            if ~contains(res, "No error", "IgnoreCase", true)
-                warning("Analyer.sendCMD: Último parâmetro: " + res)
-            end
+            % res = writeread(obj.conn, ":SYSTEM:ERROR?");
+            % 
+            % % É o resultado da espera por sincronismo.
+            % if res == '1'
+            %     return
+            % end
+            % 
+            % % OBS: O retorno de SYSTEM:ERROR indica o último parâmetro processado
+            % if ~contains(res, "No error", "IgnoreCase", true)
+            %     warning("Analyer.sendCMD: Último parâmetro: " + res)
+            % end
         end
 
         function res = getCMD(obj, cmd)

@@ -1,14 +1,22 @@
 classdef TEKTRONIX < Analysers.Analyser
+
+    properties
+        App winAppColetaV2
+    end
+
     methods
-        function obj = TEKTRONIX(~,args)
-            obj.prop = args;
+        function obj = TEKTRONIX(app, idx)
+            [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
+
+            if ~isempty(msgError)
+                error(msgError)
+            end
+
+            obj.App  = app;
+            obj.conn = instrHandle;
         end
 
         function startUp(obj)
-            if isempty(obj.conn)
-                disp('TEKTRONIX.startUP: Criando nova conexão TCP.')
-                obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            end
 
             obj.sendCMD([ ...
                 '*CLS;' ...
@@ -128,12 +136,10 @@ classdef TEKTRONIX < Analysers.Analyser
             value = str2double( charValue );
         end
 
-        function data = getTrace(obj, trace)
+        function traceData = getTrace(obj, trace)
             %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            obj.sendCMD(":INPut:ALEVel"); % Auto Level
-            obj.sendCMD(":INITiate:IMMediate"); % Trigger
-
-            writeline(obj.conn, sprintf(":FETCh:SPECtrum:TRACe%i?", trace));
+            % obj.sendCMD(":INPut:ALEVel"); % Auto Level
+            % obj.sendCMD(":INITiate:IMMediate"); % Trigger
 
             % if obj.getCMD('*OPC?') ~= '1'
             %     disp('Tektronixs: Trace data com atraso  ...')
@@ -144,7 +150,26 @@ classdef TEKTRONIX < Analysers.Analyser
             %     pause(0.2)
             % end   
 
-            traceData = readbinblock(obj.conn, 'single');
+            timeoutTic = tic;
+            t = toc(timeoutTic);
+
+            NumberOfError = 0;
+            while t<10
+                try
+                    writeline(obj.conn, sprintf(":INITiate:IMMediate;:INPut:ALEVel;:FETCh:SPECtrum:TRACe%i?", trace));
+                    pause(.01)
+                    traceData = readbinblock(obj.conn, 'single');
+                    break
+
+                catch ME
+                    NumberOfError = NumberOfError+1;
+                    flush(obj.conn)
+
+                    % if NumberOfError == 10
+                    %     obj.conn.ReconnectAttempt(obj, instrSelected, nBands, SpecificSCPI)
+                    % end
+                end
+            end
 
             if numel(traceData) ~= 501
                 error('Tektronixs: Tamanho de vetor não esperado.')
@@ -154,22 +179,22 @@ classdef TEKTRONIX < Analysers.Analyser
                 warning('Tektronixs: Trace data contém NaN')
             end
 
-            fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
-            fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
+            % fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
+            % fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
+            % 
+            % header = linspace(fstart, fstop, length(traceData));
 
-            header = linspace(fstart, fstop, length(traceData));
-
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Tektronixs: Trace header pronto com atraso  ...')
-            % end
-
-            % TODO: Possível falha na detecção
-            if isnan(header)
-                warning('Tektronixs: Trace head contém NaN')
-            end   
-
-            % header revertido de string para double para facilitar o plot
-            data = table( header', traceData', 'VariableNames', {'freq', 'value'});
+            % % if obj.getCMD('*OPC?') ~= '1'
+            % %     disp('Tektronixs: Trace header pronto com atraso  ...')
+            % % end
+            % 
+            % % TODO: Possível falha na detecção
+            % if isnan(header)
+            %     warning('Tektronixs: Trace head contém NaN')
+            % end   
+            % 
+            % % header revertido de string para double para facilitar o plot
+            % data = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end
     end
 end
