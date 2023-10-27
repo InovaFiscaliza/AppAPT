@@ -1,5 +1,5 @@
 function estimateCW(~, ~, ~)
-    shape = fcn.naive.calculateInternalShape('hReceiver', 'FreqList', 'OptionalArguments');
+    shape = fcn.naive.calculateInternalShape('hReceiver', 'FreqList');
 
     % Freq. média dos valores
     eCW = mean(shape, 2);
@@ -11,9 +11,10 @@ function estimateCW(~, ~, ~)
     zscore = [ abs( ( eCW - avgECW ) / stdECW ), (1:numel(eCW))' ];
 
     [~,zIdx] = sort(zscore(:,1));
-    feCW = zscore(zIdx,:);
-    feCW = feCW( 1:round(height(feCW) * 0.2), : );
+    eCW = zscore(zIdx,:);
+    eCW = eCW( 1:round(height(eCW) * 0.2), : );
 
-    fprintf('Frequência central estimada para 68%% das medidas em %i ± %0.f Hz.\n', feCW(1), std(feCW(:,1)) );
+    fprintf('Frequência central estimada para 68%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), std(eCW(1,:)) );
+    fprintf('Frequência central estimada para 95%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 2 * std(eCW(1,:)) );
 end
 
