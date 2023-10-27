@@ -117,7 +117,6 @@ classdef TEKTRONIX < Analysers.Analyser
 
         function value = getMarker(obj, freq, ~) % O argumento opcional é o trace
             %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-
             
             % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i;*WAI', freq)     );
