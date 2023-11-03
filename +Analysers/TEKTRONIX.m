@@ -27,7 +27,7 @@ classdef TEKTRONIX < Analysers.Analyser
                 ':SYSTem:GPS INT;' ...
                 '*OPC']);
 
-            obj.sendCMD(":INITiate:CONTinuous OFF"); % Single mesure
+            obj.sendCMD(":INITiate:CONTinuous OFF"); % Set to single mesure
 
             res = obj.getCMD(":SYSTEM:ERROR?");
 
@@ -116,38 +116,38 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function value = getMarker(obj, freq, ~) % O argumento opcional é o trace
-            %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+            % obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             
             % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i;*WAI', freq)     );
 
-            if obj.getCMD('*OPC?') ~= '1'
-                disp('Tektronixs: Marker pronto com atraso ...')
-            end
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Tektronixs: Marker pronto com atraso ...')
+            % end
 
             charValue = obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?;*WAI;');
 
-            while( isnan(charValue) )
-                warning('Tektronixs: Marker com atraso.')
-                % Casting porque o resultado retorna 'char'
-            end
+            % while( isnan(charValue) )
+            %     warning('Tektronixs: Marker com atraso.')
+            % end
             
+            % Casting porque o resultado retorna 'char'
             value = str2double( charValue );
         end
 
         function traceData = getTrace(obj, trace)
-            %obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
+            % obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
             % obj.sendCMD(":INPut:ALEVel"); % Auto Level
             % obj.sendCMD(":INITiate:IMMediate"); % Trigger
 
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Tektronixs: Trace data com atraso  ...')
-            % end
-            % 
-            % while( obj.getCMD('*OPC?') ~= '1' )
-            %     disp('Analyser: Aguardando Trace recursivo ...')
-            %     pause(0.2)
-            % end   
+            if obj.getCMD('*OPC?') ~= '1'
+                disp('Tektronixs: Trace data com atraso  ...')
+            end
+
+            while( obj.getCMD('*OPC?') ~= '1' )
+                disp('Analyser: Aguardando Trace recursivo ...')
+                pause(0.2)
+            end   
 
             timeoutTic = tic;
             t = toc(timeoutTic);
@@ -162,17 +162,18 @@ classdef TEKTRONIX < Analysers.Analyser
 
                 catch ME
                     NumberOfError = NumberOfError+1;
+                    warning(ME)
                     flush(obj.conn)
 
-                    % if NumberOfError == 10
-                    %     obj.conn.ReconnectAttempt(obj, instrSelected, nBands, SpecificSCPI)
-                    % end
+                    if NumberOfError == 10
+                        obj.conn.ReconnectAttempt(obj, instrSelected, nBands, SpecificSCPI)
+                    end
                 end
             end
 
-            if numel(traceData) ~= 501
-                error('Tektronixs: Tamanho de vetor não esperado.')
-            end
+            % if numel(traceData) ~= 501
+            %     error('Tektronixs: Tamanho de vetor não esperado.')
+            % end
 
             if isnan(traceData)
                 warning('Tektronixs: Trace data contém NaN')
@@ -193,6 +194,7 @@ classdef TEKTRONIX < Analysers.Analyser
             % end   
             % 
             % % header revertido de string para double para facilitar o plot
+            %
             % data = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end
     end

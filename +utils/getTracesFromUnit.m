@@ -1,8 +1,6 @@
 function dataTraces = getTracesFromUnit(instrumentObj, nTraces)
 % Função de referência, a ser incorporada na classe correta.
 % Faz chamadas de traço e acumula para entregar os dados
-
-    %ref = spc.getTrace(1);
     
     %dataTraces = zeros(nTraces, height(ref), 'single');
     idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
@@ -18,8 +16,11 @@ function dataTraces = getTracesFromUnit(instrumentObj, nTraces)
 
     dataTraces = zeros(nTraces, DataPoints, 'single');
     for ii = 1:nTraces
-        if ~mod(ii,10); ii
-        end
+        % % Mostra os passos dos traces.
+        % if ~mod(ii,10); ii
+        % end
         dataTraces(ii, :) = instrumentObj.getTrace(1);
     end
+
+    % dataTraces = table( header, traceData, 'VariableNames', {'freq', 'value'});
 end
