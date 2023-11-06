@@ -17,7 +17,6 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function startUp(obj)
-
             obj.sendCMD([ ...
                 '*CLS;' ...
                 '*ESE 1;' ...
@@ -144,10 +143,10 @@ classdef TEKTRONIX < Analysers.Analyser
                 disp('Tektronixs: Trace data com atraso  ...')
             end
 
-            while( obj.getCMD('*OPC?') ~= '1' )
-                disp('Analyser: Aguardando Trace recursivo ...')
-                pause(0.2)
-            end   
+            % while( obj.getCMD('*OPC?') ~= '1' )
+            %     disp('Analyser: Aguardando Trace recursivo ...')
+            %     pause(0.2)
+            % end   
 
             timeoutTic = tic;
             t = toc(timeoutTic);
