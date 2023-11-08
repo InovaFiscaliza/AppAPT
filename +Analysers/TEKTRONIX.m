@@ -161,10 +161,12 @@ classdef TEKTRONIX < Analysers.Analyser
 
                 catch ME
                     NumberOfError = NumberOfError+1;
-                    warning(ME)
+                    % Deveria avisar sobre problemas de sincronismo.
+                    % warning('TEKTRONIX: %s', ME.identifier)
                     flush(obj.conn)
 
                     if NumberOfError == 10
+                        warning('Reconnet Attempt.')
                         obj.conn.ReconnectAttempt(obj, instrSelected, nBands, SpecificSCPI)
                     end
                 end
@@ -178,23 +180,23 @@ classdef TEKTRONIX < Analysers.Analyser
                 warning('Tektronixs: Trace data contém NaN')
             end
 
-            % fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
-            % fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
-            % 
-            % header = linspace(fstart, fstop, length(traceData));
+            fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
+            fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
 
-            % % if obj.getCMD('*OPC?') ~= '1'
-            % %     disp('Tektronixs: Trace header pronto com atraso  ...')
-            % % end
-            % 
-            % % TODO: Possível falha na detecção
-            % if isnan(header)
-            %     warning('Tektronixs: Trace head contém NaN')
-            % end   
+            header = linspace(fstart, fstop, length(traceData));
+
+            if obj.getCMD('*OPC?') ~= '1'
+                disp('Tektronixs: Trace header pronto com atraso  ...')
+            end
+            
+            % TODO: Possível falha na detecção
+            if isnan(header)
+                warning('Tektronixs: Trace head contém NaN')
+            end   
             % 
             % % header revertido de string para double para facilitar o plot
             %
-            % data = table( header', traceData', 'VariableNames', {'freq', 'value'});
+            traceData = table( header', traceData', 'VariableNames', {'freq', 'value'});
         end
     end
 end
