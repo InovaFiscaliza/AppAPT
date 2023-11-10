@@ -66,8 +66,8 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         %
-        % No Tektronix, o prefixo SPECtrum é mandatório,
-        % por isso estão sobrecarregados a partir daqui.
+        % No Tektronix, o prefixo modo SPECtrum é mandatório,
+        % por isso Analyser esstá sobrecarregado a partir daqui.
         %
 
         function res = getSpan(obj)
@@ -139,10 +139,12 @@ classdef TEKTRONIX < Analysers.Analyser
             % obj.sendCMD(":INPut:ALEVel"); % Auto Level
             % obj.sendCMD(":INITiate:IMMediate"); % Trigger
 
-            if obj.getCMD('*OPC?') ~= '1'
-                disp('Tektronixs: Trace data com atraso  ...')
-            end
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Tektronixs: Trace data com atraso  ...')
+            % end
 
+            % % Em nenhum caso entrou neste laço. 
+            % % O OPC anterior bLoqueia o fluxo até terminar.
             % while( obj.getCMD('*OPC?') ~= '1' )
             %     disp('Analyser: Aguardando Trace recursivo ...')
             %     pause(0.2)
@@ -154,12 +156,25 @@ classdef TEKTRONIX < Analysers.Analyser
             NumberOfError = 0;
             while t<10
                 try
-                    writeline(obj.conn, sprintf(":INITiate:IMMediate;:INPut:ALEVel;:FETCh:SPECtrum:TRACe%i?", trace));
-                    pause(.01)
-                    traceData = readbinblock(obj.conn, 'single');
+                    flush(obj.conn);
+                    writeline(obj.conn, sprintf("INIT;*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
+                    % writeline(obj.conn, sprintf(":INITiate:IMMediate;:INPut:ALEVel;:FETCh:SPECtrum:TRACe%i?", trace));
+                    % pause(.1)
+                    traceArray = readbinblock(obj.conn, 'single');
+
+                    if numel(traceArray) ~= 501
+                        error('Tektronixs: Tamanho de vetor não esperado.')
+                    end
+
+                    fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
+                    fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
+
+                    header = linspace(fstart, fstop, numel(traceArray));
+                    traceData = table( header', traceArray', 'VariableNames', {'freq', 'value'});
+
                     break
 
-                catch ME
+                catch
                     NumberOfError = NumberOfError+1;
                     % Deveria avisar sobre problemas de sincronismo.
                     % warning('TEKTRONIX: %s', ME.identifier)
@@ -167,36 +182,23 @@ classdef TEKTRONIX < Analysers.Analyser
 
                     if NumberOfError == 10
                         warning('Reconnet Attempt.')
-                        obj.conn.ReconnectAttempt(obj, instrSelected, nBands, SpecificSCPI)
+                        obj.conn.ReconnectAttempt(obj, obj.conn.UserData.instrSelected, 1, SpecificSCPI)
                     end
                 end
             end
 
-            % if numel(traceData) ~= 501
-            %     error('Tektronixs: Tamanho de vetor não esperado.')
+            % if isnan(traceData)
+            %     warning('Tektronixs: Trace data contém NaN')
             % end
 
-            if isnan(traceData)
-                warning('Tektronixs: Trace data contém NaN')
-            end
-
-            fstart = str2double( obj.getCMD(":SPECtrum:FREQuency:START?") );
-            fstop  = str2double( obj.getCMD(":SPECtrum:FREQuency:STOP?" ) );
-
-            header = linspace(fstart, fstop, length(traceData));
-
-            if obj.getCMD('*OPC?') ~= '1'
-                disp('Tektronixs: Trace header pronto com atraso  ...')
-            end
+            % if obj.getCMD('*OPC?') ~= '1'
+            %     disp('Tektronixs: Trace header pronto com atraso  ...')
+            % end
             
             % TODO: Possível falha na detecção
-            if isnan(header)
-                warning('Tektronixs: Trace head contém NaN')
-            end   
-            % 
-            % % header revertido de string para double para facilitar o plot
-            %
-            traceData = table( header', traceData', 'VariableNames', {'freq', 'value'});
+            % if isnan(header)
+            %     warning('Tektronixs: Trace head contém NaN')
+            % end              
         end
     end
 end

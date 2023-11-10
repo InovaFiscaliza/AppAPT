@@ -1,16 +1,16 @@
-
+% idx = 0: Load workspace
 % idx = 1: instrumento virtual
 % idx = 2: instrumento real
-% idx = 3: Load workspace
 
-idx = 3;
+idx = 0;
 
-if idx < 3
+if idx ~= 0
 
     % Reutiliza o app se ativo
-    if ~exist('app', 'var')
-        app = winAppColetaV2;
-    elseif ~isvalid(app)
+    appFigure = findall(groot,'Type','Figure','Name', 'appColetaV2 R2023a');
+    if ~isempty(appFigure) && isvalid(appFigure)
+        app = appFigure.RunningAppInstance;
+    else
         app = winAppColetaV2;
     end
 
@@ -19,19 +19,28 @@ if idx < 3
     % Timeout para evitar:
     % Warning: The specified amount of data was not returned within the Timeout period for 'readbinblock'.
     % 'tcpclient' unable to read any data. For more information on possible reasons, see tcpclient Read Warnings. 
-    Instr.conn.Timeout = 20;
+    Instr.conn.Timeout = 5;
     
     % Ajusta o instrumento pela API
-    Instr.setFreq(100300000);
-    Instr.setSpan(500000);
+    if idx == 2
+        Instr.setFreq(100300000); % Real
+        Instr.setSpan(500000);
+    else 
+        Instr.setFreq(10000000);  % Virtual
+        Instr.setSpan(10000);      
+    end
     
     tekbench = apt.bench.Naive();
-    tekbench = tekbench.getTracesFromUnit(Instr, 10);
+    tekbench.getTracesFromUnit(Instr, 10);
 
     save('+apt/+bench/TestBook/Fluxo.mat', 'tekbench')
 else
     load('+apt/+bench/TestBook/Fluxo.mat')
 end
 
-tekbench.calculateBW()
-tekbench.estimateCW()
+tekbench.delta = -22;
+
+tekbench.calculateBW
+tekbench.estimateCW
+
+tekbench.experimentalPlot

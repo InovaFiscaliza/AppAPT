@@ -1,18 +1,98 @@
-classdef Naive
+classdef Naive < handle
     %%  Funções de cálculo "ingênuas" para propósito geral.
     %%  Não devem ser herdadas ou sobreescritas 
 
     properties
+        delta = -26     % sempre negativo para xdB.
         sampleTrace
         dataTraces
-        shape
+        smoothedTraces
+        shape           % Medido do pico até o delta
+        extShape        % Igual mas medido de fora para dentro
+    end
+
+    methods(Access = private)
+
+        function calculateShape(obj)
+            nTraces = height(obj.dataTraces);
+
+            % Pré-aloca as tabelas
+            obj.shape    = zeros(nTraces, 2, 'single');
+            obj.extShape = zeros(nTraces, 2, 'single');
+
+            % Escolher dataTraces ou smoothedTraces
+            refData = obj.smoothedTraces;
+
+            for ii = 1:nTraces
+                fIntInf = NaN;
+                fIntSup = NaN;
+                fExtInf = NaN;
+                fExtSup = NaN;
+
+                peak = max( refData(ii,:) );
+                peakIndex = find( refData(ii,:) == peak );
+
+                % Busca do pico para baixo
+                for jj = peakIndex-1:-1:1
+                    if refData(ii,jj) <= peak + obj.delta
+                        % Interpola a frequência
+                        fIntInf = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peak + obj.delta);
+                        break;
+                    end
+                end
+
+                % Busca do pico para cima
+                for jj = peakIndex+1:width(refData(ii,:))
+                    if refData(ii,jj) <= peak + obj.delta
+                        % Interpola a frequência
+                        fIntSup = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peak + obj.delta);
+                        break;
+                    end
+                end
+
+                % Busca do final da faixa para o pico
+                for jj = width(refData(ii,:)):-1:peakIndex+1
+                    if refData(ii,jj) >= peak + obj.delta
+                        % Interpola a frequência
+                        if jj == width(refData(ii,:))
+                            fExtSup = obj.sampleTrace.freq(jj);
+                        else
+                            fExtSup = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peak + obj.delta);
+                        end
+                        break;
+                    end
+                end
+
+                % Busca do início da faixa para o pico
+                for jj = 1:peakIndex-1
+                    if refData(ii,jj) >= peak + obj.delta
+                        % Interpola a frequência
+                        if jj == 1
+                            fExtInf = obj.sampleTrace.freq(jj);
+                        else
+                            fExtInf = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peak + obj.delta);
+                        end
+                        break;
+                    end
+                end
+
+                obj.shape(ii,:)    = [fIntInf,fIntSup];
+                obj.extShape(ii,:) = [fExtInf,fExtSup];
+            end
+
+            % Remove linhas com NaN
+            indexNaN = any(isnan(obj.shape),2);
+            obj.shape(indexNaN,:)    = [];
+            obj.extShape(indexNaN,:) = [];
+        end
     end
 
     methods
+
         function obj = Naive()
         end
 
-        function obj = getTracesFromUnit(obj, instrumentObj, nTraces)
+        function getTracesFromUnit(obj, instrumentObj, nTraces)
             % Faz chamadas de traço e acumula para entregar os dados
 
             idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
@@ -27,64 +107,26 @@ classdef Naive
             instrumentObj.startUp();
 
             obj.sampleTrace = instrumentObj.getTrace(1);
+            obj.dataTraces  = zeros(nTraces, DataPoints, 'single');
 
-            obj.dataTraces = zeros(nTraces, DataPoints, 'single');
-            for ii = 1:nTraces
+            ii = 1;
+            while ii <= nTraces
                 % % Mostra os passos dos traces.
                 % if ~mod(ii,10); ii
                 % end
-                obj.dataTraces(ii,:) = instrumentObj.getTrace(1).value;
-            end
-        end
-
-        function obj = calculateShape(obj)
-            nTraces = height(obj.dataTraces);
-
-            % o delta é sempre um número negativo para xdB.
-            delta = -26;
-
-            % Pré-aloca a tabela
-            obj.shape = zeros(nTraces, 2, 'single');
-
-            for ii = 1:nTraces
-                fInf = NaN;
-                fSup = NaN;
-
-                peak = max( obj.dataTraces(ii,:) );
-                peakIndex = find( obj.dataTraces(ii,:) == peak );
-
-
-                % calculateInternalShape (Do pico para as bordas)
-
-                % Busca do pico para acima
-                for jj = peakIndex+1:width(obj.dataTraces(ii,:))
-                    if obj.dataTraces(ii,jj) <= peak + delta
-                        % Interpola a frequência
-                        fSup = interp1( obj.dataTraces(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peak + delta);
-                        break;
-                    end
+                try
+                    obj.dataTraces(ii,:) = instrumentObj.getTrace(1).value;
+                    ii = ii + 1;
+                catch
                 end
-
-                % Busca do pico para abaixo
-                for jj = peakIndex-1:-1:1
-                    if obj.dataTraces(ii,jj) <= peak + delta
-                        % Interpola a frequência
-                        fInf = interp1( obj.dataTraces(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peak + delta);
-                        break;
-                    end
-                end
-                obj.shape(ii,:) = [fInf,fSup];
             end
-
-            % TODO% Calcular de fora para dentro e comparar.
-
-            % Remove qualquer linha com NaN
-            indexNaN = any(isnan(obj.shape),2);
-            obj = obj.shape(~indexNaN,:);
+            
+            obj.calculateShape();
         end
 
         function calculateBW(obj)
-            obj.shape = obj.calculateShape();
+            % TODO: Remover: Para o caso de não haver coleta do intrumento (idx = 0)
+            obj.calculateShape();
 
             nTraces = height(obj.shape);
 
@@ -102,14 +144,15 @@ classdef Naive
         end
 
         function estimateCW(obj)
-            obj.shape = obj.calculateShape();
+            % TODO: Remover: Para o caso de não haver coleta do intrumento
+            obj.calculateShape();
 
             % Freq. média dos valores
             eCW = mean(obj.shape, 2);
 
             % Média e desvio do total
             avgECW = mean( eCW );
-            stdECW = std ( eCW );
+            stdECW = std ( eCW ) + 0.0001; % Evita desvio zero no simulador.
 
             % Calcula a distância de cada valor para a média
             zscore = [ abs( ( eCW - avgECW ) / stdECW ), (1:numel(eCW))' ];
@@ -121,6 +164,18 @@ classdef Naive
             fprintf('Naive: Frequência central estimada para 68%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), std(eCW(1,:)) );
             fprintf('Naive: Frequência central estimada para 89%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 1.5 * std(eCW(1,:)) );
             fprintf('Naive: Frequência central estimada para 95%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 2 * std(eCW(1,:)) );
+        end
+
+        function experimentalPlot(obj)
+            f = figure; ax = axes(f);
+
+            plot(ax, obj.sampleTrace.freq, obj.dataTraces(1,:))
+            hold on
+
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', .075);
+            
+            plot(ax, obj.sampleTrace.freq, obj.smoothedTraces(1,:))
+            drawnow
         end
     end
 end
