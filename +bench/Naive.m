@@ -1,14 +1,14 @@
 classdef Naive < handle
     %%  Funções de cálculo "ingênuas" para propósito geral.
-    %%  Não devem ser herdadas ou sobreescritas 
 
     properties
-        delta = -26     % sempre negativo para xdB.
+        beta            {mustBeGreaterThan(beta, 0), mustBeLessThan(beta, 100)} = 99
+        delta           {mustBeInteger} = 26 % Para xdB (ref. FM)
         sampleTrace
         dataTraces
         smoothedTraces
         shape           % Medido do pico até o delta
-        extShape        % Igual mas medido de fora para dentro
+        extShape        % Medido dos extremos para o pico
     end
 
     methods(Access = private)
@@ -21,7 +21,7 @@ classdef Naive < handle
             obj.extShape = zeros(nTraces, 2, 'single');
 
             % Escolher dataTraces ou smoothedTraces
-            refData = obj.smoothedTraces;
+            % refData = obj.smoothedTraces;
 
             for ii = 1:nTraces
                 fIntInf = NaN;
@@ -29,8 +29,15 @@ classdef Naive < handle
                 fExtInf = NaN;
                 fExtSup = NaN;
 
+                refData = obj.dataTraces;
+
                 peak = max( refData(ii,:) );
                 peakIndex = find( refData(ii,:) == peak );
+
+                % Por definição o delta é sempre negativo.
+                if obj.delta > 0
+                    obj.delta = obj.delta * -1;
+                end
 
                 % Busca do pico para baixo
                 for jj = peakIndex-1:-1:1
@@ -98,6 +105,7 @@ classdef Naive < handle
             idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
             DataPoints_Limits = instrumentObj.App.receiverObj.Config.DataPoints_Limits{idx1};
 
+            % TODO: Verificar casos de pontos variáveis
             if diff(round(DataPoints_Limits))
                 % Datapoints = instrumentObj.getDataPoints;
                 error('O instrumento deve ter um número fixo de pontos! A evoluir...')
@@ -124,7 +132,7 @@ classdef Naive < handle
             obj.calculateShape();
         end
 
-        function calculateBW(obj)
+        function calculateBWxdB(obj)
             % TODO: Remover: Para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShape();
 
@@ -166,15 +174,153 @@ classdef Naive < handle
             fprintf('Naive: Frequência central estimada para 95%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 2 * std(eCW(1,:)) );
         end
 
-        function experimentalPlot(obj)
+        function channelPower(obj, chFreqStart, chFreqStop, RBW)
+            % Encontra os índices dentro do canal
+            idx1 = find( obj.sampleTrace.freq >= chFreqStart, 1 );
+            idx2 = find( obj.sampleTrace.freq >= chFreqStop, 1 );
+            idx2 = max(idx2);
+
+            if isnan(idx1) || isnan(idx2)
+                error('Naive: A largura de banda excede os limites dos dados.')
+            end
+
+            % Separa os dados do canal pelo índice
+            xData_ch = obj.sampleTrace.freq(idx1:idx2);
+            yData_ch = obj.dataTraces(:,idx1:idx2);
+
+            if idx1 ~= idx2
+                % Aproximação por trapézio.
+                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch')/RBW, 2)))';
+            else
+                warning("Naive: Banda insuficiente. Cálculo sobre uma única amostra.")
+                chPower = yData_ch';
+            end
+
+            AvgCP = mean( chPower );
+            stdCP = std ( chPower );
+
+            fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
+
+            f = figure; ax = axes(f);
+            plot(ax, obj.sampleTrace.freq, obj.dataTraces(1,:))
+            hold on
+            xline( obj.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
+            xline( obj.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
+            yline( AvgCP, 'r', 'LineWidth', 2 );
+            xlabel(ax, 'Largura do canal (verde)');
+            ylabel(ax, 'Potência (vermelho)');
+            drawnow
+        end
+
+        % function betaPower = betaPercent(obj)
+        function estimateBWBetaPercent(obj)
+            % Calcula BW em beta %
+            % Sensível ao piso de ruído e portadoras complexas (digitais).
+
+            nTraces = height(obj.dataTraces);
+            
+            for ii = 1:nTraces
+                peak = max( obj.dataTraces(ii,:) );
+                peakIndex = find( obj.dataTraces(ii,:) == peak );             
+                MarginSupIdx = width(obj.dataTraces);
+
+                % Ajusta a janela em torno do centro até a borda mais próxima.
+                % Porque a concentração de energia deve estar em torno dela.
+                if peakIndex > ( MarginSupIdx / 2 )
+                    wIdxSup = MarginSupIdx;
+                    wIdxInf = MarginSupIdx - (MarginSupIdx - peakIndex);
+                else
+                    wIdxSup = 2 * peakIndex; 
+                    wIdxInf = 1;   
+                end
+                betaPower = trapz( wIdxInf:wIdxSup, db2pow(obj.dataTraces(ii, wIdxInf:wIdxSup) ) );
+            end
+
+            % Potência de referência do canal
+            refChPW = mean(betaPower);
+            % rebChPwdStd = std(betaPower);
+
+            % Inicializa as matrizes
+            newBetaPower = zeros(nTraces, 2, 'double');
+            idxs = zeros(nTraces, 2, 'double');
+
+            for ii = 1:nTraces
+                wInf = wIdxInf;
+                wSup = wIdxSup;
+
+                % Peneirando com redução progressiva da janela
+                for jj = wInf:wSup
+                    if mod(jj,2) == 0
+                        wInf = wInf + 1;
+                    else 
+                        wSup = wSup - 1;
+                    end
+
+                    if abs( wSup - wInf ) <= 1
+                        % warning('Naive: estimateBWBetaPercent: Convergência não encontrada')
+                        break
+                    end
+        
+                    newBetaPower(ii) = trapz( wInf:wSup, db2pow(obj.dataTraces(ii, wInf:wSup) ) );
+                    
+                    betaRef = refChPW * obj.beta / 100; % Ref. para potência beta %
+
+                    if newBetaPower(ii) <= betaRef
+                        % Balanceamento da janela
+                        % Elege nas proximidades a melhor combinação.
+
+                        minError = newBetaPower(ii) - refChPW;
+                        
+                        for ib = -5:5
+                            if ib <= 1 || ib >= height(obj.dataTraces)
+                                continue
+                            end
+
+                            for jb = -5:5
+                                if jb <= 1 || jb >= height(obj.dataTraces)
+                                    continue
+                                end
+
+                                nInf = wInf + ib;
+                                nSup = wSup + jb;
+
+                                if ~(nSup > nInf)
+                                    continue
+                                end
+
+                                newBetaPower(ii) = trapz( nInf:nSup, db2pow(obj.dataTraces(ii, nInf:nSup) ) );
+                                
+                                if minError < (newBetaPower(ii) - refChPW)
+                                    minError = newBetaPower(ii) - refChPW;
+                                    idxs(ii,:) = [obj.sampleTrace.freq(nInf), obj.sampleTrace.freq(nSup)];
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            disp(idxs)
+            disp(diff(idxs))
+            % n = height(idxs)
+            % stdBW = std(bBW)
+        end
+
+        function experimentalSmoothPlot(obj)
+            smooth = 0.075;
+
             f = figure; ax = axes(f);
 
             plot(ax, obj.sampleTrace.freq, obj.dataTraces(1,:))
             hold on
 
-            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', .075);
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', smooth);
             
             plot(ax, obj.sampleTrace.freq, obj.smoothedTraces(1,:))
+
+            lx = sprintf('Comparação aplicando suavização de %0.3f.', smooth);
+            xlabel(ax, lx);
+
             drawnow
         end
     end
