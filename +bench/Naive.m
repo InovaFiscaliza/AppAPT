@@ -6,6 +6,7 @@ classdef Naive < handle
         delta           {mustBeInteger} = 26 % Para xdB (ref. FM)
         sampleTrace
         dataTraces
+        SmoothingFactor = 0.075;
         smoothedTraces
         shape           % Medido do pico até o delta
         extShape        % Medido dos extremos para o pico
@@ -218,26 +219,47 @@ classdef Naive < handle
             % Sensível ao piso de ruído e portadoras complexas (digitais).
 
             nTraces = height(obj.dataTraces);
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
+            chPowerPerSweep = zeros(nTraces, 1);
             
             for ii = 1:nTraces
                 peak = max( obj.dataTraces(ii,:) );
-                peakIndex = find( obj.dataTraces(ii,:) == peak );             
-                MarginSupIdx = width(obj.dataTraces);
+                peakIndex = find( obj.smoothedTraces == peak );    % usando o smoothdata pra identificar o peakIndex          
+                MarginSupIdx = width(obj.smoothedTraces);
 
                 % Ajusta a janela em torno do centro até a borda mais próxima.
                 % Porque a concentração de energia deve estar em torno dela.
-                if peakIndex > ( MarginSupIdx / 2 )
+                if peakIndex >= ( MarginSupIdx / 2 )
                     wIdxSup = MarginSupIdx;
-                    wIdxInf = MarginSupIdx - (MarginSupIdx - peakIndex);
+                    wIdxInf = 2*peakIndex - MarginSupIdx;
                 else
-                    wIdxSup = 2 * peakIndex; 
+                    wIdxSup = 2*peakIndex-1; 
                     wIdxInf = 1;   
                 end
-                betaPower = trapz( wIdxInf:wIdxSup, db2pow(obj.dataTraces(ii, wIdxInf:wIdxSup) ) );
+                % precisa consertar, inserindo RBW. o eixo x precisa ser em
+                % frequência.
+                chPowerPerSweep(ii) = trapz( wIdxInf:wIdxSup, db2pow(obj.smoothedTraces(ii, wIdxInf:wIdxSup) ) );
+
+                idx1 = wIdxInf;
+                idx2 = wIdxSup;
+                chRefPower = .99*chPowerPerSweep(ii);
+                chInstPower = chPowerPerSweep(ii);
+                while chInstPower > chRefPower
+                    idx1 = idx1+1;
+                    idx2 = idx2-1;
+                    chInstPower = trapz( wIdxInf:wIdxSup, db2pow(obj.smoothedTraces(ii, wIdxInf:wIdxSup) ) ); % do jeito certo
+                end
+
+                % quando sair do loop
+                % BW = idx2-idx1 (em frequência)
+
+                % depois interpola... pra chegar num valor que coincida
+                % exatamente com os 99%. não precisa porque o trapézio já
+                % caga tudo.
             end
 
             % Potência de referência do canal
-            refChPW = mean(betaPower);
+            refChPW = mean(chPowerPerSweep);
             % rebChPwdStd = std(betaPower);
 
             % Inicializa as matrizes
@@ -307,14 +329,12 @@ classdef Naive < handle
         end
 
         function experimentalSmoothPlot(obj)
-            smooth = 0.075;
-
             f = figure; ax = axes(f);
 
             plot(ax, obj.sampleTrace.freq, obj.dataTraces(1,:))
             hold on
 
-            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', smooth);
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor );
             
             plot(ax, obj.sampleTrace.freq, obj.smoothedTraces(1,:))
 
