@@ -191,7 +191,7 @@ classdef Naive < handle
 
             if idx1 ~= idx2
                 % Aproximação por trapézio.
-                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch')/RBW, 2)))';
+                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch')/RBW)))';
             else
                 warning("Naive: Banda insuficiente. Cálculo sobre uma única amostra.")
                 chPower = yData_ch';
@@ -221,7 +221,10 @@ classdef Naive < handle
             nTraces = height(obj.dataTraces);
             obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
             chPowerPerSweep = zeros(nTraces, 1);
-            
+            % Incluíndo RBW no cálculo:
+            % Necessário indexar por frequência, e não por índices.
+            % https://signalhound.com/news/what-is-channel-power-and-occupied-bandwidth/#:~:text=Padj%20and%20Pch,adjacent%20and%20main%20channel%20bandwidths
+
             for ii = 1:nTraces
                 peak = max( obj.dataTraces(ii,:) );
                 peakIndex = find( obj.smoothedTraces == peak );    % usando o smoothdata pra identificar o peakIndex          
@@ -338,7 +341,7 @@ classdef Naive < handle
             
             plot(ax, obj.sampleTrace.freq, obj.smoothedTraces(1,:))
 
-            lx = sprintf('Comparação aplicando suavização de %0.3f.', smooth);
+            lx = sprintf('Comparação aplicando suavização de %0.3f.', obj.SmoothingFactor);
             xlabel(ax, lx);
 
             drawnow

@@ -49,8 +49,8 @@ LInf = CW - 100000;
 LSup = CW + 100000;
 BW = 300000; % Pouco maior que a largura do canal
 
+tekbench.channelPower(LInf, LSup, BW)
+
+tekbench.experimentalSmoothPlot
+
 tekbench.estimateBWBetaPercent
-
-% tekbench.channelPower(LInf, LSup, BW)
-
-% tekbench.experimentalSmoothPlot
