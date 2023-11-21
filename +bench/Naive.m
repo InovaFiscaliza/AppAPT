@@ -2,16 +2,21 @@ classdef Naive < handle
     %%  Funções de cálculo "ingênuas" para propósito geral.
 
     properties
-        beta            {mustBeGreaterThan(beta, 0), mustBeLessThan(beta, 100)} = 99
+        % O padrão é 26 dB para FM em F3E.
+        % Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1.
         delta           {mustBeInteger} = 26 % Para xdB (ref. FM)
+
+        beta            {mustBeGreaterThan(beta, 0), mustBeLessThan(beta, 100)} = 99
         sampleTrace
         dataTraces
         smoothedTraces
-        shape           % Medido do pico até o delta
-        extShape        % Medido dos extremos para o pico
+        shape                       % Medido do pico até o delta
+        extShape                    % Medido dos extremos para o pico
 
         % Parâmetros 'fixos'
+        RBW                         % Os dados dependem dele
         SmoothingFactor = 0.075;
+        ZScoreSamples = 0.2         % (apenas na CW). Os 20% melhores Z-Score
     end
 
     methods(Access = private)
@@ -118,7 +123,14 @@ classdef Naive < handle
 
             instrumentObj.startUp();
 
+            % A série depende do RBW usado na coleta.
+            % Questiona o instrumento sobre o valor efetivamente usado:
+            obj.RBW = str2double( instrumentObj.getRes );
+
+            % Traço de amostra, basicamente para indices de frequências
             obj.sampleTrace = instrumentObj.getTrace(1);
+
+            % Objeto que conterá o volume de dados
             obj.dataTraces  = zeros(nTraces, DataPoints, 'single');
 
             ii = 1;
@@ -162,20 +174,21 @@ classdef Naive < handle
 
             [~,zIdx] = sort(zscore(:,1));
             eCW = zscore(zIdx,:);
-            eCW = eCW( 1:round(height(eCW) * 0.2), : );
+
+            % Seleciona as 20% com menor Z-Score
+            eCW = eCW( 1:round(height(eCW) * obj.ZScoreSamples), : );
 
             CW = double(avgECW + eCW(1));
             stdCW = std(eCW(1,:));
         end
 
-        function [AvgCP, stdCP] = channelPower(obj, chFreqStart, chFreqStop, RBW)
+        function [AvgCP, stdCP] = channelPower(obj, chFreqStart, chFreqStop)
             % Encontra os índices dentro do canal
             idx1 = find( obj.sampleTrace.freq >= chFreqStart, 1 );
             idx2 = find( obj.sampleTrace.freq >= chFreqStop, 1 );
-            idx2 = max(idx2);
 
             if isnan(idx1) || isnan(idx2)
-                error('Naive: A largura de banda excede os limites dos dados.')
+                error('Naive channelPower: A largura de banda excede os limites dos dados.')
             end
 
             % Separa os dados do canal pelo índice
@@ -184,14 +197,19 @@ classdef Naive < handle
 
             if idx1 ~= idx2
                 % Aproximação por trapézio.
-                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch')/RBW)))';
+                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch') / 2 / obj.RBW)))';
+                % TODO: A divisão por dois acima foi para aproximação com
+                %       a leitura do instrumento. Ainda a entender.
+
             else
-                warning("Naive: Banda insuficiente. Cálculo sobre uma única amostra.")
+                warning("Naive channelPower: Banda insuficiente. Cálculo sobre uma única amostra.")
                 chPower = yData_ch';
             end
 
             AvgCP = mean( chPower );
-            stdCP = std ( chPower );
+
+            % TODO: Incerteza dobrada até o entendido do comentário anterior.
+            stdCP = 2 * std ( chPower );
         end
 
         function experimentalSmoothPlot(obj)

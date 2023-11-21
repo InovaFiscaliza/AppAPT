@@ -3,6 +3,7 @@
 % idx = 2: instrumento real
 
 idx = 0;
+samples = 100;
 
 if idx ~= 0
 
@@ -14,6 +15,7 @@ if idx ~= 0
         app = winAppColetaV2;
     end
 
+    % TODO: Carga de Classe do intrumento dinâmica
     Instr = apt.Analysers.TEKTRONIX(app, idx);
     
     % Timeout para evitar:
@@ -23,7 +25,7 @@ if idx ~= 0
     
     % Ajusta o instrumento pela API
     if idx == 2
-        Instr.setFreq( apt.utils.channel2freq(262) ); % Real, FM por canal.
+        Instr.setFreq( apt.utils.channel2freq(262) ); % FM por canal.
         Instr.setSpan(500000);
     else 
         Instr.setFreq(10000000);  % Virtual
@@ -31,14 +33,14 @@ if idx ~= 0
     end
     
     tekbench = apt.bench.Naive();
-    tekbench.getTracesFromUnit(Instr, 10);
+    tekbench.getTracesFromUnit(Instr, samples);
 
     save('+apt/+bench/TestBook/Fluxo.mat', 'tekbench')
 else
     load('+apt/+bench/TestBook/Fluxo.mat')
 end
 
-tekbench.delta = 22; % Teste de alteração de atributo de Classe.
+tekbench.delta = 25; % Teste de alteração de atributo de Classe.
                      % O padrão é 26 dB para FM em F3E.
                      % Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1.
 
@@ -72,10 +74,10 @@ tekbench.delta = 22; % Teste de alteração de atributo de Classe.
 CW = 100300000;
 LInf = CW - 100000;
 LSup = CW + 100000;
-BW = 300000; % Pouco maior que a largura do canal
 
-[AvgCP, stdCP] = tekbench.channelPower(LInf, LSup, BW);
+[AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
 
+    warning('Naive Internal: A aproximação é por "truque". Função ainda em análise:')
     fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
 
     idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
@@ -97,6 +99,4 @@ tekbench.experimentalSmoothPlot;
 % Calculate BW por beta%
 %
 
-% Revertida. A ser reimplementada do zero.
-
-% tekbench.estimateBWBetaPercent(BW);
+% tekbench.estimateBWBetaPercent;
