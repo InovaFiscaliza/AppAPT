@@ -6,10 +6,12 @@ classdef Naive < handle
         delta           {mustBeInteger} = 26 % Para xdB (ref. FM)
         sampleTrace
         dataTraces
-        SmoothingFactor = 0.075;
         smoothedTraces
         shape           % Medido do pico até o delta
         extShape        % Medido dos extremos para o pico
+
+        % Parâmetros 'fixos'
+        SmoothingFactor = 0.075;
     end
 
     methods(Access = private)
@@ -98,6 +100,7 @@ classdef Naive < handle
     methods
 
         function obj = Naive()
+            % Vazio ainda
         end
 
         function getTracesFromUnit(obj, instrumentObj, nTraces)
@@ -133,27 +136,18 @@ classdef Naive < handle
             obj.calculateShape();
         end
 
-        function calculateBWxdB(obj)
-            % TODO: Remover: Para o caso de não haver coleta do intrumento (idx = 0)
+        function [BW, stdBW] = calculateBWxdB(obj)
+            % TODO: Remover chamada interna
+            % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
+
             obj.calculateShape();
-
-            nTraces = height(obj.shape);
-
             BW = diff(obj.shape');
-
             stdBW = std(BW);
-
-            fprintf('Naive: De %i medidas válidas, o desvio está em Max: %0.f, Min: %0.f, Avg: %0.f ± %0.f Hz\n', nTraces, max(BW), min(BW), mean(BW), std(BW));
-            s68 = mean(BW) + stdBW;
-            s89 = mean(BW) + 1.5 * stdBW;
-            s95 = mean(BW) + 2 * stdBW;
-            fprintf('Naive: Se a distribuição for normal, 68%% do desvio está abaixo de %.0f kHz.\n', s68 - stdBW);
-            fprintf('Naive: Se a distribuição for normal, 89%% do desvio está abaixo de %.0f kHz.\n', s89 - stdBW);
-            fprintf('Naive: Se a distribuição for normal, 95%% do desvio está abaixo de %.0f kHz.\n', s95 - stdBW);
         end
 
-        function estimateCW(obj)
-            % TODO: Remover: Para o caso de não haver coleta do intrumento
+        function [CW, stdCW] = estimateCW(obj)
+            % TODO: Remover chamada interna
+            % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShape();
 
             % Freq. média dos valores
@@ -170,12 +164,11 @@ classdef Naive < handle
             eCW = zscore(zIdx,:);
             eCW = eCW( 1:round(height(eCW) * 0.2), : );
 
-            fprintf('Naive: Frequência central estimada para 68%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), std(eCW(1,:)) );
-            fprintf('Naive: Frequência central estimada para 89%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 1.5 * std(eCW(1,:)) );
-            fprintf('Naive: Frequência central estimada para 95%% das medidas em %0.f ± %0.f Hz.\n', double(avgECW + eCW(1)), 2 * std(eCW(1,:)) );
+            CW = double(avgECW + eCW(1));
+            stdCW = std(eCW(1,:));
         end
 
-        function channelPower(obj, chFreqStart, chFreqStop, RBW)
+        function [AvgCP, stdCP] = channelPower(obj, chFreqStart, chFreqStop, RBW)
             % Encontra os índices dentro do canal
             idx1 = find( obj.sampleTrace.freq >= chFreqStart, 1 );
             idx2 = find( obj.sampleTrace.freq >= chFreqStop, 1 );
@@ -199,136 +192,6 @@ classdef Naive < handle
 
             AvgCP = mean( chPower );
             stdCP = std ( chPower );
-
-            fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
-
-            f = figure; ax = axes(f);
-            plot(ax, obj.sampleTrace.freq, obj.dataTraces(1,:))
-            hold on
-            xline( obj.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
-            xline( obj.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
-            yline( AvgCP, 'r', 'LineWidth', 2 );
-            xlabel(ax, 'Largura do canal (verde)');
-            ylabel(ax, 'Potência (vermelho)');
-            drawnow
-        end
-
-        % function betaPower = betaPercent(obj)
-        function estimateBWBetaPercent(obj)
-            % Calcula BW em beta %
-            % Sensível ao piso de ruído e portadoras complexas (digitais).
-
-            nTraces = height(obj.dataTraces);
-            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
-            chPowerPerSweep = zeros(nTraces, 1);
-            % Incluíndo RBW no cálculo:
-            % Necessário indexar por frequência, e não por índices.
-            % https://signalhound.com/news/what-is-channel-power-and-occupied-bandwidth/#:~:text=Padj%20and%20Pch,adjacent%20and%20main%20channel%20bandwidths
-
-            for ii = 1:nTraces
-                peak = max( obj.dataTraces(ii,:) );
-                peakIndex = find( obj.smoothedTraces == peak );    % usando o smoothdata pra identificar o peakIndex          
-                MarginSupIdx = width(obj.smoothedTraces);
-
-                % Ajusta a janela em torno do centro até a borda mais próxima.
-                % Porque a concentração de energia deve estar em torno dela.
-                if peakIndex >= ( MarginSupIdx / 2 )
-                    wIdxSup = MarginSupIdx;
-                    wIdxInf = 2*peakIndex - MarginSupIdx;
-                else
-                    wIdxSup = 2*peakIndex-1; 
-                    wIdxInf = 1;   
-                end
-                % precisa consertar, inserindo RBW. o eixo x precisa ser em
-                % frequência.
-                chPowerPerSweep(ii) = trapz( wIdxInf:wIdxSup, db2pow(obj.smoothedTraces(ii, wIdxInf:wIdxSup) ) );
-
-                idx1 = wIdxInf;
-                idx2 = wIdxSup;
-                chRefPower = .99*chPowerPerSweep(ii);
-                chInstPower = chPowerPerSweep(ii);
-                while chInstPower > chRefPower
-                    idx1 = idx1+1;
-                    idx2 = idx2-1;
-                    chInstPower = trapz( wIdxInf:wIdxSup, db2pow(obj.smoothedTraces(ii, wIdxInf:wIdxSup) ) ); % do jeito certo
-                end
-
-                % quando sair do loop
-                % BW = idx2-idx1 (em frequência)
-
-                % depois interpola... pra chegar num valor que coincida
-                % exatamente com os 99%. não precisa porque o trapézio já
-                % caga tudo.
-            end
-
-            % Potência de referência do canal
-            refChPW = mean(chPowerPerSweep);
-            % rebChPwdStd = std(betaPower);
-
-            % Inicializa as matrizes
-            newBetaPower = zeros(nTraces, 2, 'double');
-            idxs = zeros(nTraces, 2, 'double');
-
-            for ii = 1:nTraces
-                wInf = wIdxInf;
-                wSup = wIdxSup;
-
-                % Peneirando com redução progressiva da janela
-                for jj = wInf:wSup
-                    if mod(jj,2) == 0
-                        wInf = wInf + 1;
-                    else 
-                        wSup = wSup - 1;
-                    end
-
-                    if abs( wSup - wInf ) <= 1
-                        % warning('Naive: estimateBWBetaPercent: Convergência não encontrada')
-                        break
-                    end
-        
-                    newBetaPower(ii) = trapz( wInf:wSup, db2pow(obj.dataTraces(ii, wInf:wSup) ) );
-                    
-                    betaRef = refChPW * obj.beta / 100; % Ref. para potência beta %
-
-                    if newBetaPower(ii) <= betaRef
-                        % Balanceamento da janela
-                        % Elege nas proximidades a melhor combinação.
-
-                        minError = newBetaPower(ii) - refChPW;
-                        
-                        for ib = -5:5
-                            if ib <= 1 || ib >= height(obj.dataTraces)
-                                continue
-                            end
-
-                            for jb = -5:5
-                                if jb <= 1 || jb >= height(obj.dataTraces)
-                                    continue
-                                end
-
-                                nInf = wInf + ib;
-                                nSup = wSup + jb;
-
-                                if ~(nSup > nInf)
-                                    continue
-                                end
-
-                                newBetaPower(ii) = trapz( nInf:nSup, db2pow(obj.dataTraces(ii, nInf:nSup) ) );
-                                
-                                if minError < (newBetaPower(ii) - refChPW)
-                                    minError = newBetaPower(ii) - refChPW;
-                                    idxs(ii,:) = [obj.sampleTrace.freq(nInf), obj.sampleTrace.freq(nSup)];
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            disp(idxs)
-            disp(diff(idxs))
-            % n = height(idxs)
-            % stdBW = std(bBW)
         end
 
         function experimentalSmoothPlot(obj)
