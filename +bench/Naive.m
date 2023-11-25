@@ -21,15 +21,37 @@ classdef Naive < handle
 
     methods(Access = private)
 
-        function calculateShape(obj)
+        % O sampleTrace é uma amostra para relacionar índices e
+        % frequências. Estas duas funções deixarão o código mais claro e
+        % adicionam a possibilidade de testar os limites antes.
+        function idx = freq2idx(obj, freq)
+            idx = find( obj.sampleTrace.freq >= freq, 1 );
+
+            if isempty(idx)
+                idx = NaN;
+            end
+
+            if idx > height(obj.sampleTrace)
+                error('Naive freq2idx:O índice excede os limites.')
+            end
+        end
+        function freq = idx2freq(obj, idx)
+            % TODO: Arredondar a frequência para o mais próximo
+            % TODO: Ajustar para trabalhar com ranges e remover todas as
+            %       chamadas a obj.sampleTrace.freq daqui para baixo.
+            freq = double( obj.sampleTrace.freq(idx) );
+
+            if isempty(freq)
+                freq = NaN;
+            end
+        end
+
+        function calculateShapeXdB(obj)
             nTraces = height(obj.dataTraces);
 
             % Pré-aloca as tabelas
             obj.shape    = zeros(nTraces, 2, 'single');
             obj.extShape = zeros(nTraces, 2, 'single');
-
-            % Escolher dataTraces ou smoothedTraces
-            % refData = obj.smoothedTraces;
 
             for ii = 1:nTraces
                 fIntInf = NaN;
@@ -37,10 +59,12 @@ classdef Naive < handle
                 fExtInf = NaN;
                 fExtSup = NaN;
 
+                % Escolher dataTraces ou smoothedTraces
+                % refData = obj.smoothedTraces;
                 refData = obj.dataTraces;
 
-                peak = max( refData(ii,:) );
-                peakIndex = find( refData(ii,:) == peak );
+                peakLevel = max( refData(ii,:) );
+                peakIndex = find( refData(ii,:) == peakLevel );
 
                 % Por definição o delta é sempre negativo.
                 if obj.delta > 0
@@ -49,30 +73,30 @@ classdef Naive < handle
 
                 % Busca do pico para baixo
                 for jj = peakIndex-1:-1:1
-                    if refData(ii,jj) <= peak + obj.delta
+                    if refData(ii,jj) <= peakLevel + obj.delta
                         % Interpola a frequência
-                        fIntInf = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peak + obj.delta);
+                        fIntInf = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj-1:jj), peakLevel + obj.delta);
                         break;
                     end
                 end
 
                 % Busca do pico para cima
                 for jj = peakIndex+1:width(refData(ii,:))
-                    if refData(ii,jj) <= peak + obj.delta
+                    if refData(ii,jj) <= peakLevel + obj.delta
                         % Interpola a frequência
-                        fIntSup = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peak + obj.delta);
+                        fIntSup = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peakLevel + obj.delta);
                         break;
                     end
                 end
 
                 % Busca do final da faixa para o pico
                 for jj = width(refData(ii,:)):-1:peakIndex+1
-                    if refData(ii,jj) >= peak + obj.delta
+                    if refData(ii,jj) >= peakLevel + obj.delta
                         % Interpola a frequência
                         if jj == width(refData(ii,:))
                             fExtSup = obj.sampleTrace.freq(jj);
                         else
-                            fExtSup = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peak + obj.delta);
+                            fExtSup = interp1( refData(ii,jj:jj+1), obj.sampleTrace.freq(jj:jj+1), peakLevel + obj.delta);
                         end
                         break;
                     end
@@ -80,12 +104,12 @@ classdef Naive < handle
 
                 % Busca do início da faixa para o pico
                 for jj = 1:peakIndex-1
-                    if refData(ii,jj) >= peak + obj.delta
+                    if refData(ii,jj) >= peakLevel + obj.delta
                         % Interpola a frequência
                         if jj == 1
                             fExtInf = obj.sampleTrace.freq(jj);
                         else
-                            fExtInf = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peak + obj.delta);
+                            fExtInf = interp1( refData(ii,jj-1:jj), obj.sampleTrace.freq(jj-1:jj), peakLevel + obj.delta);
                         end
                         break;
                     end
@@ -105,7 +129,7 @@ classdef Naive < handle
     methods
 
         function obj = Naive()
-            % Vazio ainda
+            % Construtor vazio ainda, necessário só para instanciar.
         end
 
         function getTracesFromUnit(obj, instrumentObj, nTraces)
@@ -145,14 +169,14 @@ classdef Naive < handle
                 end
             end
             
-            obj.calculateShape();
+            obj.calculateShapeXdB();
         end
 
         function [BW, stdBW] = calculateBWxdB(obj)
             % TODO: Remover chamada interna
             % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
+            obj.calculateShapeXdB();
 
-            obj.calculateShape();
             BW = diff(obj.shape');
             stdBW = std(BW);
         end
@@ -160,7 +184,7 @@ classdef Naive < handle
         function [CW, stdCW] = estimateCW(obj)
             % TODO: Remover chamada interna
             % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
-            obj.calculateShape();
+            obj.calculateShapeXdB();
 
             % Freq. média dos valores
             eCW = mean(obj.shape, 2);
@@ -169,9 +193,8 @@ classdef Naive < handle
             avgECW = mean( eCW );
             stdECW = std ( eCW ) + 0.0001; % Evita desvio zero no simulador.
 
-            % Calcula a distância de cada valor para a média
+            % Calcula a distância de cada valor para a média e ordena
             zscore = [ abs( ( eCW - avgECW ) / stdECW ), (1:numel(eCW))' ];
-
             [~,zIdx] = sort(zscore(:,1));
             eCW = zscore(zIdx,:);
 
@@ -184,8 +207,8 @@ classdef Naive < handle
 
         function [AvgCP, stdCP] = channelPower(obj, chFreqStart, chFreqStop)
             % Encontra os índices dentro do canal
-            idx1 = find( obj.sampleTrace.freq >= chFreqStart, 1 );
-            idx2 = find( obj.sampleTrace.freq >= chFreqStop, 1 );
+            idx1 = obj.freq2idx(chFreqStart);
+            idx2 = obj.freq2idx(chFreqStop);
 
             if isnan(idx1) || isnan(idx2)
                 error('Naive channelPower: A largura de banda excede os limites dos dados.')
@@ -197,9 +220,15 @@ classdef Naive < handle
 
             if idx1 ~= idx2
                 % Aproximação por trapézio.
-                chPower = pow2db((trapz(xData_ch, db2pow(yData_ch') / 2 / obj.RBW)))';
+                % WARN: Alto custo computacional:
+                chPower = pow2db( (trapz(xData_ch, db2pow(yData_ch') / 2 / obj.RBW)) );
                 % TODO: A divisão por dois acima foi para aproximação com
-                %       a leitura do instrumento. Ainda a entender.
+                %       a leitura do instrumento.
+                %       Ainda a entender porque mede dobrado.
+
+                % Na fórmula tem:
+                % % Somatório que é o trapz
+                % % ( 10 .^ FFTBindBm / 10 ) que é igual a db2pow
 
             else
                 warning("Naive channelPower: Banda insuficiente. Cálculo sobre uma única amostra.")
@@ -211,6 +240,66 @@ classdef Naive < handle
             % TODO: Incerteza dobrada até o entendido do comentário anterior.
             stdCP = 2 * std ( chPower );
         end
+
+        function [bBw, stdbBW] = estimateBWBetaPercent(obj)
+            % Calcula BW por beta %
+            % Sensível ao piso de ruído e portadoras complexas (digitais).
+
+            % Recalculando smoothdata pra identificar o peakIndex
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
+
+
+            nTraces = height(obj.smoothedTraces);
+            LocalbBw = zeros(nTraces, 1, 'single');
+
+            for ii = 1:nTraces
+                peak = max( obj.smoothedTraces(ii,:) );
+                peakIndex = find( obj.smoothedTraces(ii,:) == peak );
+                peakFreq = obj.sampleTrace.freq(peakIndex);
+
+                % Frequência máxima possível da amostra sampletrace.
+                MarginSupFreq = max( obj.sampleTrace.freq );
+
+                % Ajusta a janela em torno do centro até a borda mais próxima.
+                % Porque a concentração de energia deve estar em torno dela.
+                if peakFreq >= ( MarginSupFreq / 2 )
+                    wFreqSup = MarginSupFreq;
+                    wFreqInf = 2 * peakFreq - MarginSupFreq;
+                else
+                    wFreqSup = 2 * peakFreq - obj.RBW; 
+                    % Frequência mínima possível da amostra sampletrace.
+                    wFreqInf = obj.sampleTrace(1);   
+                end
+
+                % Potência de referência alvo
+                chRefPower = mean( obj.beta / 100 * db2pow( obj.channelPower(wFreqInf, wFreqSup) ) );
+
+                wFInf = wFreqInf;
+                wFSup = wFreqSup;
+
+                while(wFSup > wFInf)
+                    % % Peneira removendo os menores valores de cada lado pelo índice
+                    % if obj.dataTraces( obj.freq2idx(wFSup) ) >= obj.dataTraces( obj.freq2idx(wFInf) )
+                    %     wFSup = obj.idx2freq( obj.freq2idx(wFSup) - 1 );
+                    % else
+                    %     wFInf = obj.idx2freq( obj.freq2idx(wFInf) + 1 );
+                    % end
+
+                    % Alternativa: Puxa os dois lados da janela ao mesmo
+                    % tempo. Sem melhora de desempenho.
+                    wFSup = obj.idx2freq( obj.freq2idx(wFSup) - 1 );
+                    wFInf = obj.idx2freq( obj.freq2idx(wFInf) + 1 );
+
+                    if db2pow( obj.channelPower(wFInf, wFSup) ) <= chRefPower
+                        LocalbBw(ii) = wFSup - wFInf;
+                        break
+                    end
+                end
+            end
+
+            bBw = mean(LocalbBw);
+            stdbBW = std(LocalbBw);
+        end    
 
         function experimentalSmoothPlot(obj)
             f = figure; ax = axes(f);

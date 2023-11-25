@@ -25,6 +25,8 @@ if idx ~= 0
     
     % Ajusta o instrumento pela API
     if idx == 2
+        % Chamada pelo nº do canal.
+        % Emissora de referência: Transamérica 100.3 MHz, classe E3.
         Instr.setFreq( apt.utils.channel2freq(262) ); % FM por canal.
         Instr.setSpan(500000);
     else 
@@ -77,7 +79,7 @@ LSup = CW + 100000;
 
 [AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
 
-    warning('Naive Internal: A aproximação é por "truque". Função ainda em análise:')
+    warning('Naive Internal: Aproximação por "truque". Função em análise:')
     fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
 
     idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
@@ -99,4 +101,5 @@ tekbench.experimentalSmoothPlot;
 % Calculate BW por beta%
 %
 
-% tekbench.estimateBWBetaPercent;
+[bBw, stdbBW] = tekbench.estimateBWBetaPercent;
+fprintf('Naive beta 99%% (com péssimo desempenho): Desvio em %0.f ± %0.f Hz\n', bBw, stdbBW);
