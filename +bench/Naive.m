@@ -5,18 +5,17 @@ classdef Naive < handle
         % O padrão é 26 dB para FM em F3E.
         % Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1.
         delta           {mustBeInteger} = 26 % Para xdB (ref. FM)
+        beta            {mustBeGreaterThan(beta, 0), mustBeLessThan(beta, 100)} = 99 %
+        RBW                         % Os dados dependem do RBW
+        SmoothingFactor = 0.075;    % Fator de suavizasão dos dados
+        ZScoreSamples = 0.2         % (Só para CW) Seleciona os 20% melhores Z-Scores
 
-        beta            {mustBeGreaterThan(beta, 0), mustBeLessThan(beta, 100)} = 99
-        sampleTrace
-        dataTraces
-        smoothedTraces
-        shape                       % Medido do pico até o delta
-        extShape                    % Medido dos extremos para o pico
-
-        % Parâmetros 'fixos'
-        RBW                         % Os dados dependem dele
-        SmoothingFactor = 0.075;
-        ZScoreSamples = 0.2         % (apenas na CW). Os 20% melhores Z-Score
+        % Estruturas
+        sampleTrace                 % Estrutura de amostra para ref. índices e freq.
+        dataTraces                  % Dados brutos (ref. unidade dos dados de entrada)
+        smoothedTraces              % Dados com suavizasão aplicada.
+        shape                       % Medido do pico até o delta xdB
+        extShape                    % Medido dos extremos para o pico o delta xdB
     end
 
     methods(Access = private)
@@ -59,9 +58,11 @@ classdef Naive < handle
                 fExtInf = NaN;
                 fExtSup = NaN;
 
+                obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
+
                 % Escolher dataTraces ou smoothedTraces
-                % refData = obj.smoothedTraces;
-                refData = obj.dataTraces;
+                % refData = obj.dataTraces;
+                refData = obj.smoothedTraces;
 
                 peakLevel = max( refData(ii,:) );
                 peakIndex = find( refData(ii,:) == peakLevel );
@@ -214,17 +215,19 @@ classdef Naive < handle
                 error('Naive channelPower: A largura de banda excede os limites dos dados.')
             end
 
+            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
+
             % Separa os dados do canal pelo índice
             xData_ch = obj.sampleTrace.freq(idx1:idx2);
-            yData_ch = obj.dataTraces(:,idx1:idx2);
+            yData_ch = obj.smoothedTraces(:,idx1:idx2);
 
             if idx1 ~= idx2
                 % Aproximação por trapézio.
                 % WARN: Alto custo computacional:
-                chPower = pow2db( (trapz(xData_ch, db2pow(yData_ch') / 2 / obj.RBW)) );
+                chPower = pow2db( (trapz(xData_ch, db2pow(yData_ch') * 2 / obj.RBW)) );
                 % TODO: A divisão por dois acima foi para aproximação com
                 %       a leitura do instrumento.
-                %       Ainda a entender porque mede dobrado.
+                %       Ainda a entender por que mede a menor.
 
                 % Na fórmula tem:
                 % % Somatório que é o trapz
@@ -248,7 +251,6 @@ classdef Naive < handle
             % Recalculando smoothdata pra identificar o peakIndex
             obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
 
-
             nTraces = height(obj.smoothedTraces);
             LocalbBw = zeros(nTraces, 1, 'single');
 
@@ -257,7 +259,7 @@ classdef Naive < handle
                 peakIndex = find( obj.smoothedTraces(ii,:) == peak );
                 peakFreq = obj.sampleTrace.freq(peakIndex);
 
-                % Frequência máxima possível da amostra sampletrace.
+                % Frequência máxima possível da amostra sampleTrace.
                 MarginSupFreq = max( obj.sampleTrace.freq );
 
                 % Ajusta a janela em torno do centro até a borda mais próxima.
@@ -272,26 +274,21 @@ classdef Naive < handle
                 end
 
                 % Potência de referência alvo
-                chRefPower = mean( obj.beta / 100 * db2pow( obj.channelPower(wFreqInf, wFreqSup) ) );
+                chRefPower = mean( obj.beta / 100 * db2pow( obj.smoothedTraces(ii, obj.freq2idx(wFreqInf):obj.freq2idx(wFreqSup)) ) );
 
-                wFInf = wFreqInf;
-                wFSup = wFreqSup;
+                wIInf = obj.freq2idx( wFreqInf );
+                wISup = obj.freq2idx( wFreqSup );
 
-                while(wFSup > wFInf)
-                    % % Peneira removendo os menores valores de cada lado pelo índice
-                    % if obj.dataTraces( obj.freq2idx(wFSup) ) >= obj.dataTraces( obj.freq2idx(wFInf) )
-                    %     wFSup = obj.idx2freq( obj.freq2idx(wFSup) - 1 );
-                    % else
-                    %     wFInf = obj.idx2freq( obj.freq2idx(wFInf) + 1 );
-                    % end
+                while(wISup > wIInf)
+                    % Peneira removendo os menores valores de cada lado pelo índice
+                    if obj.smoothedTraces( obj.freq2idx(wISup) ) >= obj.smoothedTraces( obj.freq2idx(wIInf) )
+                        wISup = wISup - 1;
+                    else
+                        wIInf = wIInf + 1;
+                    end
 
-                    % Alternativa: Puxa os dois lados da janela ao mesmo
-                    % tempo. Sem melhora de desempenho.
-                    wFSup = obj.idx2freq( obj.freq2idx(wFSup) - 1 );
-                    wFInf = obj.idx2freq( obj.freq2idx(wFInf) + 1 );
-
-                    if db2pow( obj.channelPower(wFInf, wFSup) ) <= chRefPower
-                        LocalbBw(ii) = wFSup - wFInf;
+                    if db2pow( obj.smoothedTraces(ii, wIInf:wISup )) <= chRefPower
+                        LocalbBw(ii) = obj.idx2freq(wISup) - obj.idx2freq(wIInf);
                         break
                     end
                 end

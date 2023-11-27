@@ -42,10 +42,6 @@ else
     load('+apt/+bench/TestBook/Fluxo.mat')
 end
 
-tekbench.delta = 25; % Teste de alteração de atributo de Classe.
-                     % O padrão é 26 dB para FM em F3E.
-                     % Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1.
-
 %
 % Calculate BW por xdB
 %
@@ -79,27 +75,26 @@ LSup = CW + 100000;
 
 [AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
 
-    warning('Naive Internal: Aproximação por "truque". Função em análise:')
     fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
 
-    idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
-    idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
+    % idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
+    % idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
+    % 
+    % f = figure; ax = axes(f);
+    % plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
+    % hold on
+    % xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
+    % xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
+    % yline( AvgCP, 'r', 'LineWidth', 2 );
+    % xlabel(ax, 'Largura do canal (verde)');
+    % ylabel(ax, 'Channel Power (vermelho)');
+    % drawnow
 
-    f = figure; ax = axes(f);
-    plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
-    hold on
-    xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
-    xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
-    yline( AvgCP, 'r', 'LineWidth', 2 );
-    xlabel(ax, 'Largura do canal (verde)');
-    ylabel(ax, 'Channel Power (vermelho)');
-    drawnow
-
-tekbench.experimentalSmoothPlot;
+% tekbench.experimentalSmoothPlot;
 
 %
 % Calculate BW por beta%
 %
 
 [bBw, stdbBW] = tekbench.estimateBWBetaPercent;
-fprintf('Naive beta 99%% (com péssimo desempenho): Desvio em %0.f ± %0.f Hz\n', bBw, stdbBW);
+fprintf('Naive beta 99%%: Desvio com %i amostras em %0.f ± %0.f Hz\n', nTraces, bBw, stdbBW);
