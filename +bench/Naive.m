@@ -13,37 +13,14 @@ classdef Naive < handle
         % Estruturas
         sampleTrace                 % Estrutura de amostra para ref. índices e freq.
         dataTraces                  % Dados brutos (ref. unidade dos dados de entrada)
+        dataPoints                  % pontos por traço
         smoothedTraces              % Dados com suavizasão aplicada.
         shape                       % Medido do pico até o delta xdB
         extShape                    % Medido dos extremos para o pico o delta xdB
     end
 
+    %% Métodos Privados
     methods(Access = private)
-
-        % O sampleTrace é uma amostra para relacionar índices e
-        % frequências. Estas duas funções deixarão o código mais claro e
-        % adicionam a possibilidade de testar os limites antes.
-        function idx = freq2idx(obj, freq)
-            idx = find( obj.sampleTrace.freq >= freq, 1 );
-
-            if isempty(idx)
-                idx = NaN;
-            end
-
-            if idx > height(obj.sampleTrace)
-                error('Naive freq2idx:O índice excede os limites.')
-            end
-        end
-        function freq = idx2freq(obj, idx)
-            % TODO: Arredondar a frequência para o mais próximo
-            % TODO: Ajustar para trabalhar com ranges e remover todas as
-            %       chamadas a obj.sampleTrace.freq daqui para baixo.
-            freq = double( obj.sampleTrace.freq(idx) );
-
-            if isempty(freq)
-                freq = NaN;
-            end
-        end
 
         function calculateShapeXdB(obj)
             nTraces = height(obj.dataTraces);
@@ -127,15 +104,60 @@ classdef Naive < handle
         end
     end
 
+    %% Métodos Públicos
     methods
 
         function obj = Naive()
-            % Construtor vazio ainda, necessário só para instanciar.
+            % Construtor necessário para instanciar.
         end
 
-        function getTracesFromUnit(obj, instrumentObj, nTraces)
-            % Faz chamadas de traço e acumula para entregar os dados
+        %% Funções para calcular índices e frequências.
+        function idx = freq2idx(obj, freq)
+            % aCoef e bCoef
+            % freq = aCoef + idx + bCoef;
+            % FreqStart = aCoef + bCoef;
+            % FreqStop  = aCoef * obj.dataPoints + bCoef;
 
+            % aCoef = FreqSpan / (obj.dataPoints-1);
+            % bCoef = FreqStart - aCoef;
+
+            % idx = round((freq - bCoef)/aCoef);
+
+            % if (idx < 1) || (idx > obj.dataPoints)
+            %     idx = NaN;
+            % end
+
+            obj.dataPoints = numel(obj.sampleTrace.freq);
+
+            % profile on
+
+            % Custo médio em 5 amostras de 0,059s
+            idx = find( obj.sampleTrace.freq >= freq, 1 );
+
+            % profile off
+            % profile viewer
+
+            if isempty(idx)
+                idx = NaN;
+            end
+
+            if idx > height(obj.sampleTrace)
+                idx = NaN;
+            end
+        end
+
+        function freq = idx2freq(obj, idx)
+            % TODO: Arredondar a frequência para a mais próxima
+            freq = double( obj.sampleTrace.freq(idx) );
+
+            if isempty(freq)
+                freq = NaN;
+            end
+        end
+
+        %% Faz chamadas de traço e acumula para entregar os dados
+        function getTracesFromUnit(obj, instrumentObj, nTraces)
+            
             idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
             DataPoints_Limits = instrumentObj.App.receiverObj.Config.DataPoints_Limits{idx1};
 
@@ -144,7 +166,8 @@ classdef Naive < handle
                 % Datapoints = instrumentObj.getDataPoints;
                 error('O instrumento deve ter um número fixo de pontos! A evoluir...')
             end
-            DataPoints = DataPoints_Limits(1);
+
+            obj.dataPoints = DataPoints_Limits(1);
 
             instrumentObj.startUp();
 
@@ -156,13 +179,10 @@ classdef Naive < handle
             obj.sampleTrace = instrumentObj.getTrace(1);
 
             % Objeto que conterá o volume de dados
-            obj.dataTraces  = zeros(nTraces, DataPoints, 'single');
+            obj.dataTraces  = zeros(nTraces, obj.dataPoints, 'single');
 
             ii = 1;
             while ii <= nTraces
-                % % Mostra os passos dos traces.
-                % if ~mod(ii,10); ii
-                % end
                 try
                     obj.dataTraces(ii,:) = instrumentObj.getTrace(1).value;
                     ii = ii + 1;
@@ -173,18 +193,21 @@ classdef Naive < handle
             obj.calculateShapeXdB();
         end
 
+        %% Calcula BW por xdB
         function [BW, stdBW] = calculateBWxdB(obj)
-            % TODO: Remover chamada interna
-            % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
+
+            % Chamada para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShapeXdB();
 
+            % TODO: Incluir external shape
             BW = diff(obj.shape');
             stdBW = std(BW);
         end
 
+        %% Estima frequência central por Z-Score
         function [CW, stdCW] = estimateCW(obj)
-            % TODO: Remover chamada interna
-            % Serve apenas para o caso de não haver coleta do intrumento (idx = 0)
+
+            % Chamada para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShapeXdB();
 
             % Freq. média dos valores
@@ -199,105 +222,100 @@ classdef Naive < handle
             [~,zIdx] = sort(zscore(:,1));
             eCW = zscore(zIdx,:);
 
-            % Seleciona as 20% com menor Z-Score
+            % Seleciona por menor Z-Score (obj.ZScoreSamples)
             eCW = eCW( 1:round(height(eCW) * obj.ZScoreSamples), : );
 
             CW = double(avgECW + eCW(1));
             stdCW = std(eCW(1,:));
         end
 
-        function [AvgCP, stdCP] = channelPower(obj, chFreqStart, chFreqStop)
-            % Encontra os índices dentro do canal
-            idx1 = obj.freq2idx(chFreqStart);
-            idx2 = obj.freq2idx(chFreqStop);
+        %% Calcula Potência do Canal
+        function chPower = channelPower(obj, nSweep, idx1, idx2)
 
             if isnan(idx1) || isnan(idx2)
                 error('Naive channelPower: A largura de banda excede os limites dos dados.')
-            end
-
-            obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
+            end            
 
             % Separa os dados do canal pelo índice
             xData_ch = obj.sampleTrace.freq(idx1:idx2);
-            yData_ch = obj.smoothedTraces(:,idx1:idx2);
 
-            if idx1 ~= idx2
+            if isempty(nSweep)
+                yData_ch = obj.smoothedTraces(:,idx1:idx2)';                 % A saída será um vetor
+            else
+                yData_ch = obj.smoothedTraces(nSweep,idx1:idx2)';            % A saída será um número
+            end
+
+            if idx1 <= idx2
                 % Aproximação por trapézio.
-                % WARN: Alto custo computacional:
-                chPower = pow2db( (trapz(xData_ch, db2pow(yData_ch') * 2 / obj.RBW)) );
-                % TODO: A divisão por dois acima foi para aproximação com
-                %       a leitura do instrumento.
-                %       Ainda a entender por que mede a menor.
-
-                % Na fórmula tem:
-                % % Somatório que é o trapz
-                % % ( 10 .^ FFTBindBm / 10 ) que é igual a db2pow
-
+                chPower = trapz(xData_ch, db2pow(yData_ch)/obj.RBW, 1);
             else
                 warning("Naive channelPower: Banda insuficiente. Cálculo sobre uma única amostra.")
                 chPower = yData_ch';
             end
-
-            AvgCP = mean( chPower );
-
-            % TODO: Incerteza dobrada até o entendido do comentário anterior.
-            stdCP = 2 * std ( chPower );
         end
 
+        %% Estima BW por beta %
         function [bBw, stdbBW] = estimateBWBetaPercent(obj)
             % Calcula BW por beta %
             % Sensível ao piso de ruído e portadoras complexas (digitais).
 
-            % Recalculando smoothdata pra identificar o peakIndex
+            % Recalculando smoothdata do objeto
             obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
 
             nTraces = height(obj.smoothedTraces);
             LocalbBw = zeros(nTraces, 1, 'single');
+            obj.dataPoints = numel(obj.sampleTrace.freq);
+
+            % Vetor em escala linear, uma potência por varredura
+            chRefPower = (obj.beta/100) * channelPower(obj, [], 1, obj.dataPoints);            
+
+            %% profile on
 
             for ii = 1:nTraces
-                peak = max( obj.smoothedTraces(ii,:) );
-                peakIndex = find( obj.smoothedTraces(ii,:) == peak );
-                peakFreq = obj.sampleTrace.freq(peakIndex);
 
-                % Frequência máxima possível da amostra sampleTrace.
-                MarginSupFreq = max( obj.sampleTrace.freq );
-
-                % Ajusta a janela em torno do centro até a borda mais próxima.
-                % Porque a concentração de energia deve estar em torno dela.
-                if peakFreq >= ( MarginSupFreq / 2 )
-                    wFreqSup = MarginSupFreq;
-                    wFreqInf = 2 * peakFreq - MarginSupFreq;
-                else
-                    wFreqSup = 2 * peakFreq - obj.RBW; 
-                    % Frequência mínima possível da amostra sampletrace.
-                    wFreqInf = obj.sampleTrace(1);   
-                end
-
-                % Potência de referência alvo
-                chRefPower = mean( obj.beta / 100 * db2pow( obj.smoothedTraces(ii, obj.freq2idx(wFreqInf):obj.freq2idx(wFreqSup)) ) );
-
-                wIInf = obj.freq2idx( wFreqInf );
-                wISup = obj.freq2idx( wFreqSup );
+                wIInf = 1;
+                wISup = obj.dataPoints;
 
                 while(wISup > wIInf)
-                    % Peneira removendo os menores valores de cada lado pelo índice
-                    if obj.smoothedTraces( obj.freq2idx(wISup) ) >= obj.smoothedTraces( obj.freq2idx(wIInf) )
+                    % TODO: testar a diferença do resultado da BW usando o
+                    % método "tradicional" e mais rápido computacionalmente
+                    % com o outro método que busca incrementar/decrementar
+                    % os índices em função dos seus níveis.
+
+                    %% Janelamento simétrico
+                    % wIInf = wIInf + 1;
+                    % wISup = wISup - 1;
+
+                    %% Janelamento por peneira, removendo os menores valores de cada lado.
+                    if obj.smoothedTraces(ii, wISup) <= obj.smoothedTraces(ii, wIInf)
                         wISup = wISup - 1;
                     else
                         wIInf = wIInf + 1;
                     end
 
-                    if db2pow( obj.smoothedTraces(ii, wIInf:wISup )) <= chRefPower
+                    if channelPower(obj, ii, wIInf, wISup) <= chRefPower(ii)
                         LocalbBw(ii) = obj.idx2freq(wISup) - obj.idx2freq(wIInf);
                         break
                     end
                 end
             end
 
+            %% profile off
+            % profile viewer
+
+            %% PROFILE:
+            % Média de 5 medidas:
+            % Peneira   = 3,354s
+            % Simétrico = 1,817s
+            % 85% de ganho em velocidade.
+            % A precisão parece ter melhorado em 20kHz no simétrico.
+            % TODO: Possível parametrização dos dois.
+
             bBw = mean(LocalbBw);
             stdbBW = std(LocalbBw);
         end    
 
+        %% Experimento de plotagem para Smoothed
         function experimentalSmoothPlot(obj)
             f = figure; ax = axes(f);
 

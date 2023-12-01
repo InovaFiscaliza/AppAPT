@@ -18,7 +18,7 @@ if idx ~= 0
     % TODO: Carga de Classe do intrumento dinâmica
     Instr = apt.Analysers.TEKTRONIX(app, idx);
     
-    % Timeout para evitar:
+    % Timeout:
     % Warning: The specified amount of data was not returned within the Timeout period for 'readbinblock'.
     % 'tcpclient' unable to read any data. For more information on possible reasons, see tcpclient Read Warnings. 
     Instr.conn.Timeout = 5;
@@ -29,6 +29,11 @@ if idx ~= 0
         % Emissora de referência: Transamérica 100.3 MHz, classe E3.
         Instr.setFreq( apt.utils.channel2freq(262) ); % FM por canal.
         Instr.setSpan(500000);
+
+        % % % Teste SBTVD - Globo - 41 - Central em 635.14MHz
+        % Instr.setFreq( 635140000 );
+        % Instr.setSpan(  10000000 ); % 10 MHz
+
     else 
         Instr.setFreq(10000000);  % Virtual
         Instr.setSpan(10000);      
@@ -39,7 +44,9 @@ if idx ~= 0
 
     save('+apt/+bench/TestBook/Fluxo.mat', 'tekbench')
 else
-    load('+apt/+bench/TestBook/Fluxo.mat')
+    % Ajustar a largura de banda de medição (por volta da linha 80)
+    % load('+apt/+bench/TestBook/Fluxo.mat')
+    load('+apt/+bench/TestBook/Fluxo_teste_SBTVD.mat')
 end
 
 %
@@ -69,32 +76,42 @@ end
     fprintf('Naive: Frequência central estimada para 95%% das medidas em %0.f ± %0.f Hz.\n', CW, 2 * stdCW );
 
 % Largura do canal
-CW = 100300000;
-LInf = CW - 100000;
-LSup = CW + 100000;
 
-[AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
+% TODO: Pegar a freq. central do instrumento
+% TODO: Pegar o span
+% CW = 100300000;
+% LInf = CW - 100000;
+% LSup = CW + 100000;
 
-    fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n.', AvgCP, stdCP);
+CW = 635140000;
+LInf = CW - 3000000;
+LSup = CW + 3000000;
 
-    % idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
-    % idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
-    % 
-    % f = figure; ax = axes(f);
-    % plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
-    % hold on
-    % xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
-    % xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
-    % yline( AvgCP, 'r', 'LineWidth', 2 );
-    % xlabel(ax, 'Largura do canal (verde)');
-    % ylabel(ax, 'Channel Power (vermelho)');
-    % drawnow
+% [AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
+
+    AvgCP = mean( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
+    stdCP = std ( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
+
+    fprintf('Naive: Channel Power %0.2f ± %0.2f dB (ref. unidade de entrada).\n', AvgCP, stdCP);
+
+    % Plota largura e potência do canal
+    idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
+    idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
+
+    f = figure; ax = axes(f);
+    plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
+    hold on
+    xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
+    xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
+    yline( AvgCP, 'r', 'LineWidth', 2 );
+    xlabel(ax, 'Largura do canal (verde)');
+    ylabel(ax, 'Channel Power (vermelho)');
+    drawnow
 
 % tekbench.experimentalSmoothPlot;
 
 %
 % Calculate BW por beta%
 %
-
 [bBw, stdbBW] = tekbench.estimateBWBetaPercent;
 fprintf('Naive beta 99%%: Desvio com %i amostras em %0.f ± %0.f Hz\n', nTraces, bBw, stdbBW);
