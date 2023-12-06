@@ -19,7 +19,7 @@ classdef Naive < handle
         extShape                    % Medido dos extremos para o pico o delta xdB
     end
 
-    %% Métodos Privados
+    % Métodos Privados
     methods(Access = private)
 
         function calculateShapeXdB(obj)
@@ -104,14 +104,14 @@ classdef Naive < handle
         end
     end
 
-    %% Métodos Públicos
+    % Métodos Públicos
     methods
 
         function obj = Naive()
             % Construtor necessário para instanciar.
         end
 
-        %% Funções para calcular índices e frequências.
+        % Funções para calcular índices e frequências.
         function idx = freq2idx(obj, freq)
             % aCoef e bCoef
             % freq = aCoef + idx + bCoef;
@@ -147,7 +147,6 @@ classdef Naive < handle
         end
 
         function freq = idx2freq(obj, idx)
-            % TODO: Arredondar a frequência para a mais próxima
             freq = double( obj.sampleTrace.freq(idx) );
 
             if isempty(freq)
@@ -155,7 +154,7 @@ classdef Naive < handle
             end
         end
 
-        %% Faz chamadas de traço e acumula para entregar os dados
+        % Faz chamadas de traço e acumula para entregar os dados
         function getTracesFromUnit(obj, instrumentObj, nTraces)
             
             idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
@@ -193,8 +192,8 @@ classdef Naive < handle
             obj.calculateShapeXdB();
         end
 
-        %% Calcula BW por xdB
-        function [BW, stdBW] = calculateBWxdB(obj)
+        % Calcula BW por xdB
+        function [BW, stdBW, eBW, estdBW] = calculateBWxdB(obj)
 
             % Chamada para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShapeXdB();
@@ -202,9 +201,11 @@ classdef Naive < handle
             % TODO: Incluir external shape
             BW = diff(obj.shape');
             stdBW = std(BW);
+            eBW = diff(obj.extShape');
+            estdBW = std(eBW);
         end
 
-        %% Estima frequência central por Z-Score
+        % Estima frequência central por Z-Score
         function [CW, stdCW] = estimateCW(obj)
 
             % Chamada para o caso de não haver coleta do intrumento (idx = 0)
@@ -229,7 +230,7 @@ classdef Naive < handle
             stdCW = std(eCW(1,:));
         end
 
-        %% Calcula Potência do Canal
+        % Calcula Potência do Canal
         function chPower = channelPower(obj, nSweep, idx1, idx2)
 
             if isnan(idx1) || isnan(idx2)
@@ -254,7 +255,7 @@ classdef Naive < handle
             end
         end
 
-        %% Estima BW por beta %
+        % Estima BW por beta %
         function [bBw, stdbBW] = estimateBWBetaPercent(obj)
             % Calcula BW por beta %
             % Sensível ao piso de ruído e portadoras complexas (digitais).
@@ -282,11 +283,11 @@ classdef Naive < handle
                     % com o outro método que busca incrementar/decrementar
                     % os índices em função dos seus níveis.
 
-                    %% Janelamento simétrico
+                    % Janelamento simétrico
                     % wIInf = wIInf + 1;
                     % wISup = wISup - 1;
 
-                    %% Janelamento por peneira, removendo os menores valores de cada lado.
+                    % Janelamento por peneira, removendo os menores valores de cada lado.
                     if obj.smoothedTraces(ii, wISup) <= obj.smoothedTraces(ii, wIInf)
                         wISup = wISup - 1;
                     else
@@ -300,7 +301,7 @@ classdef Naive < handle
                 end
             end
 
-            %% profile off
+            % profile off
             % profile viewer
 
             %% PROFILE:
@@ -315,7 +316,7 @@ classdef Naive < handle
             stdbBW = std(LocalbBw);
         end    
 
-        %% Experimento de plotagem para Smoothed
+        % Experimento de plotagem para Smoothed
         function experimentalSmoothPlot(obj)
             f = figure; ax = axes(f);
 
