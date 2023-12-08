@@ -198,7 +198,6 @@ classdef Naive < handle
             % Chamada para o caso de não haver coleta do intrumento (idx = 0)
             obj.calculateShapeXdB();
 
-            % TODO: Incluir external shape
             BW = diff(obj.shape');
             stdBW = std(BW);
             eBW = diff(obj.extShape');
@@ -256,9 +255,13 @@ classdef Naive < handle
         end
 
         % Estima BW por beta %
-        function [bBw, stdbBW] = estimateBWBetaPercent(obj)
+        function [bBw, stdbBW] = estimateBWBetaPercent(obj, adaptative)
             % Calcula BW por beta %
             % Sensível ao piso de ruído e portadoras complexas (digitais).
+
+            if nargin < 2 || isempty(adaptative)
+                adaptative = 1;
+            end
 
             % Recalculando smoothdata do objeto
             obj.smoothedTraces = smoothdata(obj.dataTraces, 2, 'movmean', 'SmoothingFactor', obj.SmoothingFactor);
@@ -270,28 +273,31 @@ classdef Naive < handle
             % Vetor em escala linear, uma potência por varredura
             chRefPower = (obj.beta/100) * channelPower(obj, [], 1, obj.dataPoints);            
 
-            %% profile on
-
             for ii = 1:nTraces
 
                 wIInf = 1;
                 wISup = obj.dataPoints;
 
                 while(wISup > wIInf)
-                    % TODO: testar a diferença do resultado da BW usando o
-                    % método "tradicional" e mais rápido computacionalmente
-                    % com o outro método que busca incrementar/decrementar
-                    % os índices em função dos seus níveis.
 
-                    % Janelamento simétrico
-                    % wIInf = wIInf + 1;
-                    % wISup = wISup - 1;
+                    % PROFILE:
+                    % Média de 5 medidas:
+                    % Adaptativo    = 3,354s
+                    % Simétrico     = 1,817s
+                    % 85% de ganho em velocidade.
+                    % A precisão parece ter melhorado em 20kHz no simétrico.
 
-                    % Janelamento por peneira, removendo os menores valores de cada lado.
-                    if obj.smoothedTraces(ii, wISup) <= obj.smoothedTraces(ii, wIInf)
-                        wISup = wISup - 1;
+                    if adaptative == 1
+                        % Janelamento adaptativo. Remove os menores valores de cada lado.
+                        if obj.smoothedTraces(ii, wISup) <= obj.smoothedTraces(ii, wIInf)
+                            wISup = wISup - 1;
+                        else
+                            wIInf = wIInf + 1;
+                        end
                     else
+                        Janelamento simétrico
                         wIInf = wIInf + 1;
+                        wISup = wISup - 1;
                     end
 
                     if channelPower(obj, ii, wIInf, wISup) <= chRefPower(ii)
@@ -300,17 +306,6 @@ classdef Naive < handle
                     end
                 end
             end
-
-            % profile off
-            % profile viewer
-
-            %% PROFILE:
-            % Média de 5 medidas:
-            % Peneira   = 3,354s
-            % Simétrico = 1,817s
-            % 85% de ganho em velocidade.
-            % A precisão parece ter melhorado em 20kHz no simétrico.
-            % TODO: Possível parametrização dos dois.
 
             bBw = mean(LocalbBw);
             stdbBW = std(LocalbBw);

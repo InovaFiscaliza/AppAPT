@@ -75,7 +75,7 @@ end
     
     disp('Naive: BW por xdB:')
     fprintf( 'Naive: \tDe %i medidas válidas, em %i dB (Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1)...\n', nTraces, tekbench.delta );
-    disp('Naive:  Abrido a partir do pico:')
+    disp('Naive:  Abrindo a partir do pico:')
     fprintf( 'Naive: \t\tO desvio está em Max: %0.f, Min: %0.f, Avg: %0.f ± %0.f Hz\n', max(BW), min(BW), mean(BW), std(BW) );
     % s68 = mean(BW) + stdBW;
     % s89 = mean(BW) + 1.5 * stdBW;
@@ -108,9 +108,6 @@ end
     line;
 
 % Largura do canal
-
-% TODO: Pegar a freq. central do instrumento
-% TODO: Pegar o span
 
 if strcmp(target, 'FM')
     CW = 100300000;
