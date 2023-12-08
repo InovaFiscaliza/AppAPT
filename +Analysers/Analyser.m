@@ -25,7 +25,8 @@ classdef Analyser < dynamicprops
         getMarker(obj, freq, trace)
         getTrace(obj, n)
 
-        %setRFMode(obj, mode) % TODO
+        setDataPoints(obj, points)
+        getDataPoints(obj)
     end
 
 
@@ -42,12 +43,6 @@ classdef Analyser < dynamicprops
                 % knowPorts = [5025, 5555, 9001, 34385];
                 error('Analyser: Autodiscovery não implementado')
             end
-
-            % [instrHandle, msgError] = apt.GetInstrumentHandle(app, 1)
-            % if ~isempty(msgError)
-            %     error(msgError)
-            % end
-            % obj.conn = instrHandle;
 
             try
                 anl = tcpclient(ip, port, 'Timeout', Analysers.CONSTANTS.CONNTIMEOUT);
@@ -135,35 +130,7 @@ classdef Analyser < dynamicprops
 
         % Erros negativos são padrão SCPI. Os positivos são específicos
         function sendCMD(obj, cmd)
-            % if isempty(obj.conn)
-            %     disp('Analyer.sendCMD: Criando nova conexão TCP.')
-            %     obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
-            % end
-
             obj.conn.writeline(cmd);
-
-            % Teste de bloqueio de fluxo
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Analyser: Aguardando sincronismo (1/2): ...')
-            %     disp(cmd)
-            % end
-            % 
-            % while( obj.getCMD('*OPC?') ~= '1' )
-            %     disp('Analyser: Aguardando sincronismo (2/2) recursivo ...')
-            %     pause(0.2)
-            % end   
-
-            % res = writeread(obj.conn, ":SYSTEM:ERROR?");
-            % 
-            % % É o resultado da espera por sincronismo.
-            % if res == '1'
-            %     return
-            % end
-            % 
-            % % OBS: O retorno de SYSTEM:ERROR indica o último parâmetro processado
-            % if ~contains(res, "No error", "IgnoreCase", true)
-            %     warning("Analyer.sendCMD: Último parâmetro: " + res)
-            % end
         end
 
         function res = getCMD(obj, cmd)
@@ -171,6 +138,7 @@ classdef Analyser < dynamicprops
                 disp('Analyer.getCMD: Criando nova conexão.')
                 obj.conn = tcpclient( obj.prop('ip'), double(obj.prop('port')) );
             end
+            
             % Limpa o buffer antes da leitura
             obj.conn.flush();
             res = obj.conn.writeread(cmd);

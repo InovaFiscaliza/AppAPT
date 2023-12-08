@@ -7,7 +7,6 @@ samples = 100;
 target = 'FM'; % FM ou SBTVD
 
 if idx ~= 0
-
     % Reutiliza o app se ativo
     appFigure = findall(groot,'Type','Figure','Name', 'appColetaV2 R2023a');
     if ~isempty(appFigure) && isvalid(appFigure)
@@ -18,6 +17,9 @@ if idx ~= 0
 
     % TODO: Carga de Classe do intrumento dinâmica
     Instr = apt.Analysers.TEKTRONIX(app, idx);
+
+    % Desabilita o backtrace dos warnings para uma avaliação mais limpa.
+    warning('off', 'backtrace');
     
     % Timeout:
     % Warning: The specified amount of data was not returned within the Timeout period for 'readbinblock'.
@@ -26,6 +28,10 @@ if idx ~= 0
     
     % Ajusta o instrumento pela API
     if idx == 2
+        % Teste de comportamento
+        Instr.setDataPoints(600);
+        Instr.setRes('auto');
+
         if strcmp(target, 'FM')
             % Chamada pelo nº do canal.
             % Emissora de referência: Transamérica 100.3 MHz, classe E3.
@@ -50,7 +56,7 @@ if idx ~= 0
     if strcmp(target, 'FM')
         save('+apt/+bench/TestBook/Fluxo.mat', 'tekbench')
     elseif strcmp(target, 'SBTVD')
-        save('+apt/+bench/TestBook/Fluxo_teste_SBTVD.mat')
+        save('+apt/+bench/TestBook/Fluxo_teste_SBTVD.mat', 'tekbench')
     else
         error('Alvo não encontrado')
     end

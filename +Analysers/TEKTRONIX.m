@@ -85,6 +85,7 @@ classdef TEKTRONIX < Analysers.Analyser
             else
                 obj.sendCMD( sprintf(":SPECtrum:FREQuency:START %f;:SPECtrum:FREQuency:STOP %f", freq, stop) );
             end
+
             % Sempre ajusta para Auto Level quando alterar a freq.
             obj.sendCMD("INPut:ALEVel"); % Auto Level
         end
@@ -115,41 +116,15 @@ classdef TEKTRONIX < Analysers.Analyser
         end
 
         function value = getMarker(obj, freq, ~) % O argumento opcional é o trace
-            % obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            
-            % TODO: Verificar se está dentro dos limites para evitar NaN.
             obj.sendCMD( sprintf(':CALCulate:SPECtrum:MARKer1:X %i;*WAI', freq)     );
 
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Tektronixs: Marker pronto com atraso ...')
-            % end
-
             charValue = obj.getCMD(':CALCulate:SPECtrum:MARKer1:Y?;*WAI;');
-
-            % while( isnan(charValue) )
-            %     warning('Tektronixs: Marker com atraso.')
-            % end
-            
+        
             % Casting porque o resultado retorna 'char'
             value = str2double( charValue );
         end
 
         function traceData = getTrace(obj, trace)
-            % obj.sendCMD( sprintf(':TRACe%i:SPECtrum:DETection AVERage', trace) );
-            % obj.sendCMD(":INPut:ALEVel"); % Auto Level
-            % obj.sendCMD(":INITiate:IMMediate"); % Trigger
-
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Tektronixs: Trace data com atraso  ...')
-            % end
-
-            % % Em nenhum caso entrou neste laço. 
-            % % O OPC anterior bLoqueia o fluxo até terminar.
-            % while( obj.getCMD('*OPC?') ~= '1' )
-            %     disp('Analyser: Aguardando Trace recursivo ...')
-            %     pause(0.2)
-            % end   
-
             timeoutTic = tic;
             t = toc(timeoutTic);
 
@@ -158,8 +133,6 @@ classdef TEKTRONIX < Analysers.Analyser
                 try
                     flush(obj.conn);
                     writeline(obj.conn, sprintf("INIT;*WAI;:FETCh:SPECtrum:TRACe%i?", trace));
-                    % writeline(obj.conn, sprintf(":INITiate:IMMediate;:INPut:ALEVel;:FETCh:SPECtrum:TRACe%i?", trace));
-                    % pause(.1)
                     traceArray = readbinblock(obj.conn, 'single');
 
                     if numel(traceArray) ~= 501
@@ -176,29 +149,23 @@ classdef TEKTRONIX < Analysers.Analyser
 
                 catch
                     NumberOfError = NumberOfError+1;
-                    % Deveria avisar sobre problemas de sincronismo.
-                    % warning('TEKTRONIX: %s', ME.identifier)
                     flush(obj.conn)
 
                     if NumberOfError == 10
-                        warning('Reconnet Attempt.')
+                        warning('Tektronixs: Reconnet Attempt.')
                         obj.conn.ReconnectAttempt(obj, obj.conn.UserData.instrSelected, 1, SpecificSCPI)
                     end
                 end
-            end
+            end       
+        end
 
-            % if isnan(traceData)
-            %     warning('Tektronixs: Trace data contém NaN')
-            % end
+        function setDataPoints(~, ~)
+            warning('TEKTRONIX: Instrumento fixo em 501 pontos.');
+        end
 
-            % if obj.getCMD('*OPC?') ~= '1'
-            %     disp('Tektronixs: Trace header pronto com atraso  ...')
-            % end
-            
-            % TODO: Possível falha na detecção
-            % if isnan(header)
-            %     warning('Tektronixs: Trace head contém NaN')
-            % end              
+        function points = getDataPoints(~)
+            % Fixo
+            points = 501;
         end
     end
 end

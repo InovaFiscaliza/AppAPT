@@ -157,18 +157,13 @@ classdef Naive < handle
         % Faz chamadas de traço e acumula para entregar os dados
         function getTracesFromUnit(obj, instrumentObj, nTraces)
             
-            idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
-            DataPoints_Limits = instrumentObj.App.receiverObj.Config.DataPoints_Limits{idx1};
-
-            % TODO: Verificar casos de pontos variáveis
-            if diff(round(DataPoints_Limits))
-                % Datapoints = instrumentObj.getDataPoints;
-                error('O instrumento deve ter um número fixo de pontos! A evoluir...')
-            end
-
-            obj.dataPoints = DataPoints_Limits(1);
+            % idx1 = find(strcmp(instrumentObj.App.receiverObj.Config.Tag, instrumentObj.conn.UserData.instrSelected.Tag), 1);
+            % DataPoints_Limits = instrumentObj.App.receiverObj.Config.DataPoints_Limits{idx1};
 
             instrumentObj.startUp();
+
+            % A Classe especializada responderá a situação atual, fixa ou não:
+            obj.dataPoints = instrumentObj.getDataPoints();
 
             % A série depende do RBW usado na coleta.
             % Questiona o instrumento sobre o valor efetivamente usado:
@@ -240,9 +235,11 @@ classdef Naive < handle
             xData_ch = obj.sampleTrace.freq(idx1:idx2);
 
             if isempty(nSweep)
-                yData_ch = obj.smoothedTraces(:,idx1:idx2)';                 % A saída será um vetor
+                % A saída será um vetor
+                yData_ch = obj.smoothedTraces(:,idx1:idx2)';
             else
-                yData_ch = obj.smoothedTraces(nSweep,idx1:idx2)';            % A saída será um número
+                % A saída será um número
+                yData_ch = obj.smoothedTraces(nSweep,idx1:idx2)';
             end
 
             if idx1 <= idx2
@@ -295,7 +292,7 @@ classdef Naive < handle
                             wIInf = wIInf + 1;
                         end
                     else
-                        Janelamento simétrico
+                        % Janelamento simétrico
                         wIInf = wIInf + 1;
                         wISup = wISup - 1;
                     end

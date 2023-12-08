@@ -4,7 +4,7 @@ function freq = channel2freq( channel )
     freq = NaN;
 
     % TV VHF
-    if channel >= 2 && channel <= 4;
+    if channel >= 2 && channel <= 4
         freq = channel * 6 + 42;
     end
     if channel >= 5 && channel <= 6
