@@ -2,7 +2,7 @@
 % idx = 1: instrumento virtual
 % idx = 2: instrumento real
 
-idx = 0;
+idx = 2;
 samples = 100;
 target = 'FM'; % FM ou SBTVD
 
@@ -129,7 +129,7 @@ end
 
 % [AvgCP, stdCP] = tekbench.channelPower(LInf, LSup);
 
-    AvgCP = mean( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
+    AvgCP = pow2db( mean( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
     stdCP = std ( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
 
     disp('Naive: Potência do Canal');
@@ -156,8 +156,8 @@ end
 % Calculate BW por beta%
 %
 [bBw, stdbBW] = tekbench.estimateBWBetaPercent;
-fprintf('Naive: Desvio do canal para beta %i%%:\n', tekbench.beta );
-fprintf('Naive: \t\tDesvio com %i amostras em %0.f ± %0.f Hz\n', nTraces, bBw, stdbBW);
+fprintf('Naive: largura do canal para beta %i%%:\n', tekbench.beta );
+fprintf('Naive: \t\tLargura do canal com %i amostras em %0.f ± %0.f Hz\n', nTraces, bBw, stdbBW);
 
 function line()
     n = repmat('-', 1, 80);
