@@ -1,20 +1,28 @@
 classdef TEKTRONIX < Analysers.Analyser
 
-    properties
-        App winAppColetaV2
-    end
-
+    %%
+    %% Não é papel do instrumento conhecer a aplicação dele
+    %%
+    % properties
+    %     App winAppColetaV2
+    % end
+    % 
+    
     methods
-        function obj = TEKTRONIX(app, idx)
-            [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
-
-            if ~isempty(msgError)
-                error(msgError)
-            end
-
-            obj.App  = app;
-            obj.conn = instrHandle;
+        function obj = TEKTRONIX(~,args)
+            obj.prop = args;
         end
+
+    %     function obj = TEKTRONIX(app, idx)
+    %         [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
+    % 
+    %         if ~isempty(msgError)
+    %             error(msgError)
+    %         end
+    % 
+    %         obj.App  = app;
+    %         obj.conn = instrHandle;
+    %     end
 
         function startUp(obj)
             obj.sendCMD([ ...

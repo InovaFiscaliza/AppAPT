@@ -2,7 +2,9 @@
 % idx = 1: instrumento virtual
 % idx = 2: instrumento real
 
-idx = 2;
+% idx > 0 chama o AppColeta.
+% Este trabalho é do bench. #Violação_de_responsabilidade.
+idx = 0;
 samples = 100;
 target = 'FM'; % FM ou SBTVD
 
@@ -16,15 +18,18 @@ if idx ~= 0
     end
 
     % TODO: Carga de Classe do intrumento dinâmica
+    % Não pode estar hardcoded.
     Instr = apt.Analysers.TEKTRONIX(app, idx);
 
     % Desabilita o backtrace dos warnings para uma avaliação mais limpa.
-    warning('off', 'backtrace');
+    % TODO: Para debug é uma péssima ideia. A reavaliar em produção.
+    % warning('off', 'backtrace');
     
     % Timeout:
     % Warning: The specified amount of data was not returned within the Timeout period for 'readbinblock'.
     % 'tcpclient' unable to read any data. For more information on possible reasons, see tcpclient Read Warnings. 
-    Instr.conn.Timeout = 5;
+    % TODO: Reavaliar a necessidade:
+    % Instr.conn.Timeout = 5;
     
     % Ajusta o instrumento pela API
     if idx == 2
@@ -136,21 +141,21 @@ end
     fprintf('Naive: \t\tChannel Power %0.2f ± %0.2f dB (ref. unidade de entrada).\n', AvgCP, stdCP);
     line;
 
-    % % Plota largura e potência do canal
-    % idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
-    % idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
-    % 
-    % f = figure; ax = axes(f);
-    % plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
-    % hold on
-    % xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
-    % xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
-    % yline( AvgCP, 'r', 'LineWidth', 2 );
-    % xlabel(ax, 'Largura do canal (verde)');
-    % ylabel(ax, 'Channel Power (vermelho)');
-    % drawnow
+    % Plota largura e potência do canal
+    idx1 = find( tekbench.sampleTrace.freq >= LInf, 1 );
+    idx2 = find( tekbench.sampleTrace.freq >= LSup, 1 );
 
-% tekbench.experimentalSmoothPlot;
+    f = figure; ax = axes(f);
+    plot(ax, tekbench.sampleTrace.freq, tekbench.dataTraces(1,:))
+    hold on
+    xline( tekbench.sampleTrace.freq(idx1), 'g', 'LineWidth', 2 );
+    xline( tekbench.sampleTrace.freq(idx2), 'g', 'LineWidth', 2 );
+    yline( AvgCP, 'r', 'LineWidth', 2 );
+    xlabel(ax, 'Largura do canal (verde)');
+    ylabel(ax, 'Channel Power (vermelho)');
+    drawnow
+
+tekbench.experimentalSmoothPlot;
 
 %
 % Calculate BW por beta%
