@@ -21,9 +21,6 @@ if idx ~= 0
     [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
     Instr = Analysers.Analyser.instance(rawIDN);
     Instr.conn = instrHandle;
-
-    % Desabilita o backtrace dos warnings para uma avaliação mais limpa, se necessário.
-    % warning('off', 'backtrace');
     
     % Ajusta o instrumento pela API
     if idx == 2
@@ -49,7 +46,7 @@ if idx ~= 0
         Instr.setSpan(10000);      
     end
     
-    disp("Starting measures")
+    disp("Starting real measures")
     tekbench = apt.bench.Naive();
     tekbench.getTracesFromUnit(Instr, samples);
     disp("done...")
@@ -134,7 +131,7 @@ end
     stdCP = std ( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
 
     disp('Naive: Potência do Canal');
-    fprintf('Naive: \t\tChannel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n', AvgCP, stdCP);
+    fprintf('Naive: \t\tChannel Power %0.2f dB ± %0.2f dB (ref. unidade de entrada)\n', AvgCP, stdCP);
     line;
 
     % Plota largura e potência do canal
