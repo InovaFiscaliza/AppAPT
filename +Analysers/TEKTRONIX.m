@@ -1,28 +1,8 @@
 classdef TEKTRONIX < Analysers.Analyser
-
-    %%
-    %% Não é papel do instrumento conhecer a aplicação dele
-    %%
-    % properties
-    %     App winAppColetaV2
-    % end
-    % 
-    
     methods
         function obj = TEKTRONIX(~,args)
             obj.prop = args;
         end
-
-    %     function obj = TEKTRONIX(app, idx)
-    %         [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
-    % 
-    %         if ~isempty(msgError)
-    %             error(msgError)
-    %         end
-    % 
-    %         obj.App  = app;
-    %         obj.conn = instrHandle;
-    %     end
 
         function startUp(obj)
             obj.sendCMD([ ...
@@ -114,7 +94,7 @@ classdef TEKTRONIX < Analysers.Analyser
             obj.sendCMD( sprintf(":INPut:ATTenuation %f", att) );
         end
 
-        % Para atenuação de entrada < 15dB
+        % Para atenuação de entrada < 15dB. Acima ele desliga o pré.
         function preAmp(obj, state)
             if (contains(state, "On", "IgnoreCase", true)) || (contains(state, "1"))
                 obj.sendCMD(":INPut:GAIN:STATe ON");

@@ -69,15 +69,7 @@ classdef Analyser < dynamicprops
                clear anl;
             end
 
-            % Elimina caracteres especiais do nome
-            % (ex. R&S e AT&T vão para R_S e AT_T, e FSL-6 para FSL_6)
-            res = strrep(res,'&','_');
-            res = strrep(res,'-','_');
 
-            data = strsplit(res, ',');
-            data = [data, ip, double(port)];
-            keys = ["Factory", "model", "serial", "version", "ip", "port"];
-            out = dictionary(keys, data);
         end
 
         % Conexão alternativa GPIB não implementada.
@@ -90,7 +82,17 @@ classdef Analyser < dynamicprops
         % Fábrica de instâncias
         %
 
-        function obj = instance(args)      
+        function obj = instance(idn)    
+            % Elimina caracteres especiais do nome
+            % (ex. R&S e AT&T vão para R_S e AT_T, e FSL-6 para FSL_6)
+            res = strrep(idn,'&','_');
+            res = strrep(res,'-','_');
+
+            data = strsplit(res, ',');
+            % data = [data, ip, double(port)];
+            keys = ["Factory", "model", "serial", "version", "ip", "port"];
+            args = dictionary(keys, data);
+
             % Verifica se o modelo bate com o fabricante
             % para evitar colisão de nomes
             if exist('Analysers.' + args("model"), 'class') && exist('Analysers.' + args("Factory"), 'class')

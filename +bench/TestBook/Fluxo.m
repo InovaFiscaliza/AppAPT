@@ -1,15 +1,14 @@
-% idx = 0: Load workspace
+% idx = 0: Load previous workspace
 % idx = 1: instrumento virtual
 % idx = 2: instrumento real
 
-% idx > 0 chama o AppColeta.
-% Este trabalho é do bench. #Violação_de_responsabilidade.
 idx = 0;
-samples = 100;
+samples = 20;
 target = 'FM'; % FM ou SBTVD
 
 if idx ~= 0
     % Reutiliza o app se ativo
+    % TODO: Deve rodar com o R2023b também
     appFigure = findall(groot,'Type','Figure','Name', 'appColetaV2 R2023a');
     if ~isempty(appFigure) && isvalid(appFigure)
         app = appFigure.RunningAppInstance;
@@ -17,19 +16,14 @@ if idx ~= 0
         app = winAppColetaV2;
     end
 
-    % TODO: Carga de Classe do intrumento dinâmica
-    % Não pode estar hardcoded.
-    Instr = apt.Analysers.TEKTRONIX(app, idx);
+    % Busca o IDN e instancia a classe do Instrumento
+    rawIDN = app.receiverObj.Table.Handle{idx,1}.UserData.IDN;
+    [instrHandle, msgError] = apt.utils.getInstrumentHandler(app, idx);
+    Instr = Analysers.Analyser.instance(rawIDN);
+    Instr.conn = instrHandle;
 
-    % Desabilita o backtrace dos warnings para uma avaliação mais limpa.
-    % TODO: Para debug é uma péssima ideia. A reavaliar em produção.
+    % Desabilita o backtrace dos warnings para uma avaliação mais limpa, se necessário.
     % warning('off', 'backtrace');
-    
-    % Timeout:
-    % Warning: The specified amount of data was not returned within the Timeout period for 'readbinblock'.
-    % 'tcpclient' unable to read any data. For more information on possible reasons, see tcpclient Read Warnings. 
-    % TODO: Reavaliar a necessidade:
-    % Instr.conn.Timeout = 5;
     
     % Ajusta o instrumento pela API
     if idx == 2
@@ -55,8 +49,10 @@ if idx ~= 0
         Instr.setSpan(10000);      
     end
     
+    disp("Starting measures")
     tekbench = apt.bench.Naive();
     tekbench.getTracesFromUnit(Instr, samples);
+    disp("done...")
 
     if strcmp(target, 'FM')
         save('+apt/+bench/TestBook/Fluxo.mat', 'tekbench')
@@ -85,7 +81,7 @@ end
     nTraces = width(BW);
     
     disp('Naive: BW por xdB:')
-    fprintf( 'Naive: \tDe %i medidas válidas, em %i dB (Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1)...\n', nTraces, tekbench.delta );
+    fprintf( 'Naive: \tDe %i medidas válidas, em %i dB (Ref. ITU Handbook 2011, pg. 255, TABLE 4.5-1)\n', nTraces, tekbench.delta );
     disp('Naive:  Abrindo a partir do pico:')
     fprintf( 'Naive: \t\tO desvio está em Max: %0.f, Min: %0.f, Avg: %0.f ± %0.f Hz\n', max(BW), min(BW), mean(BW), std(BW) );
     % s68 = mean(BW) + stdBW;
@@ -111,7 +107,7 @@ end
 
 [CW, stdCW] = tekbench.estimateCW;
 
-    disp('Naive: Frequência Central estimada:')
+    disp('Naive: Frequência Central estimada para 20% do z-score:')
     fprintf('Naive: \t\tPara 68%% das medidas em %0.f ± %0.f Hz.\n', CW, stdCW );
     fprintf('Naive: \t\tPara 89%% das medidas em %0.f ± %0.f Hz.\n', CW, 1.5 * stdCW );
     fprintf('Naive: \t\tPara 95%% das medidas em %0.f ± %0.f Hz.\n', CW, 2 * stdCW );
@@ -138,7 +134,7 @@ end
     stdCP = std ( pow2db( tekbench.channelPower( [], tekbench.freq2idx(LInf), tekbench.freq2idx(LSup) ) ) );
 
     disp('Naive: Potência do Canal');
-    fprintf('Naive: \t\tChannel Power %0.2f ± %0.2f dB (ref. unidade de entrada).\n', AvgCP, stdCP);
+    fprintf('Naive: \t\tChannel Power %0.2f ± %0.2f dB (ref. unidade de entrada)\n', AvgCP, stdCP);
     line;
 
     % Plota largura e potência do canal
