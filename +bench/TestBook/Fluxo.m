@@ -104,7 +104,8 @@ end
 
 [CW, stdCW] = tekbench.estimateCW;
 
-    disp('Naive: Frequência Central estimada para 20% do z-score:')
+    zscore = tekbench.ZScoreSamples * 100;
+    fprintf('Naive: Frequência Central estimada para %0.f%% do z-score:\n', zscore);
     fprintf('Naive: \t\tPara 68%% das medidas em %0.f ± %0.f Hz.\n', CW, stdCW );
     fprintf('Naive: \t\tPara 89%% das medidas em %0.f ± %0.f Hz.\n', CW, 1.5 * stdCW );
     fprintf('Naive: \t\tPara 95%% das medidas em %0.f ± %0.f Hz.\n', CW, 2 * stdCW );
