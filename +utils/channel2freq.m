@@ -1,8 +1,6 @@
 function freq = channel2freq( channel )
 %Converte o número do canal para a frequência central
 
-    freq = NaN;
-
     % TV VHF
     if channel >= 2 && channel <= 4
         freq = channel * 6 + 42;
