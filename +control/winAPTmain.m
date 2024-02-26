@@ -1,4 +1,9 @@
 classdef winAPTmain
+
+    properties
+        context
+    end
+    
     methods
         function app = winAPTmain(~)
             % Reutiliza o appColetaV2 se ativo
