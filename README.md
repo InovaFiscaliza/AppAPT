@@ -1,4 +1,4 @@
-# AppAPT
+# AppAPT (Encerrado)
 
 Projeto **AppColetaAPT** (submódulo do **AppColetaV2**).
 
